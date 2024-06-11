@@ -4,6 +4,7 @@ import { FactionCore, Factions, Grades } from '../shared/interface.js';
 import { Character } from '@Shared/types/character.js';
 import * as Utility from '@Shared/utility/index.js';
 import { DefaultRanks } from '../shared/defaultData.js';
+import { KnownKeys } from '@Shared/utilityTypes/index.js';
 
 const API_NAME = 'faction-handlers-api';
 const Rebar = useRebar();
@@ -71,7 +72,7 @@ export function useFactionHandlers() {
                 },
             },
             grades: defaultRanks,
-            locations: [],
+            locations: {},
             vehicles: [],
         };
 
@@ -121,9 +122,10 @@ export function useFactionHandlers() {
             const member = members[i];
             member.faction = null;
             const xPlayer: alt.Player = getter.byCharacter(members[i]._id);
-            const character = Rebar.document.character.useCharacter(xPlayer);
-            const playerData = character.get();
-            if (playerData && character.isValid) {
+
+            if (xPlayer && Rebar.document.character.useCharacter(xPlayer).isValid()) {
+                const character = Rebar.document.character.useCharacter(xPlayer);
+                const playerData = character.get();
                 const result = await character.set('faction', '');
                 // Add bank balance to owner character
                 if (playerData._id === ownerIdentifier) {
@@ -137,7 +139,7 @@ export function useFactionHandlers() {
             // For non-logged in character owner add bank balance
             if (!xPlayer && member._id === ownerIdentifier) {
                 member.bank += factionClone.bank;
-                await db.update({ ownerIdentifier, bank: member.bank }, 'Character');
+                await db.update({ _id: ownerIdentifier, bank: member.bank }, 'Character');
                 continue;
             }
         }
@@ -180,8 +182,14 @@ export function useFactionHandlers() {
      * Used to update faction data, and automatically propogate changes for
      * users with faction panel open.
      */
-    async function update(_id: string, partialObject: Partial<Factions>): Promise<any> {
+    async function update<T = {}, Keys = keyof KnownKeys<Factions & T>>(
+        _id: string,
+        fieldName: Keys,
+        partialObject: Partial<Factions>,
+    ): Promise<any> {
         const faction = factions[_id];
+        const typeSafeFieldName = String(fieldName);
+
         if (!faction) {
             return { status: false, response: `Faction was not found with id: ${_id}` };
         }
@@ -193,14 +201,22 @@ export function useFactionHandlers() {
 
             faction[key] = partialObject[key];
         });
-        await db.update({ _id: _id, members: partialObject.members }, FACTION_COLLECTION);
+        try {
+            const result = await db.update(
+                { _id: _id, [typeSafeFieldName]: partialObject[typeSafeFieldName] },
+                FACTION_COLLECTION,
+            );
+            console.log(result);
+        } catch (err) {
+            console.log(err);
+        }
         return { status: true, response: `Updated Faction Data` };
     }
-    async function get(_id: string): Promise<Factions> | null {
+    async function findFactionById(_id: string): Promise<Factions> | null {
         return factions[_id];
     }
 
-    function find(nameOrPartialName: string): Factions | null {
+    function findFactionByname(nameOrPartialName: string): Factions | null {
         let faction: Factions;
 
         nameOrPartialName = nameOrPartialName.replace(/ /g, '').toLowerCase();
@@ -230,8 +246,8 @@ export function useFactionHandlers() {
         create,
         remove,
         update,
-        get,
-        find,
+        findFactionByname,
+        findFactionById,
         getAllFactions,
     };
 }

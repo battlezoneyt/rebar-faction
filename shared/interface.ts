@@ -26,7 +26,7 @@ export interface FactionCore {
 export interface Factions extends FactionCore {
     members: { [key: string]: UserFaction };
     grades: Array<Grades>;
-    locations: Array<Locations>;
+    locations: Locations;
     vehicles: Array<Vehicle>;
 }
 
@@ -48,11 +48,11 @@ export interface Vehicle {
 }
 
 export interface Locations {
-    jobLocations: Array<JobLocal>;
-    storageLocations: Array<JobLocal>;
-    dutylocations: Array<JobLocal>;
+    jobLocations?: Array<JobLocal>;
+    storageLocations?: Array<JobLocal>;
+    dutylocations?: Array<JobLocal>;
     vehicleShopLoc?: Array<JobLocal>;
-    bossMenuLoc: Array<JobLocal>;
+    bossMenuLoc?: Array<JobLocal>;
     factionShopLoc?: Array<JobLocal>;
 }
 
