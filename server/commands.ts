@@ -191,7 +191,7 @@ async function registermyCommands() {
         callback: async (
             player: alt.Player,
             factionId: string,
-            location: keyof Locations,
+            locationType: keyof Locations,
             locationName: string,
             x: string,
             y: string,
@@ -200,7 +200,7 @@ async function registermyCommands() {
         ) => {
             const pos = new alt.Vector3(parseFloat(x), parseFloat(y), parseFloat(z));
             const apifunction = await api.getAsync('faction-functions-api');
-            const result = await apifunction.addLocations(player, factionId, location, locationName, pos, gradeId);
+            const result = await apifunction.addLocations(player, factionId, locationType, locationName, pos, gradeId);
             console.log(result);
         },
     });

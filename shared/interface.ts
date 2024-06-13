@@ -50,10 +50,11 @@ export interface Vehicle {
 export interface Locations {
     jobLocations?: Array<JobLocal>;
     storageLocations?: Array<JobLocal>;
-    dutylocations?: Array<JobLocal>;
+    dutyLocations?: Array<JobLocal>;
     vehicleShopLoc?: Array<JobLocal>;
     bossMenuLoc?: Array<JobLocal>;
     factionShopLoc?: Array<JobLocal>;
+    clothingLoc?: Array<JobLocal>;
 }
 
 export interface JobLocal {
@@ -61,5 +62,7 @@ export interface JobLocal {
     locationName: string;
     pos: alt.Vector3;
     gradeId: string;
+    sprite?: number;
+    color?: number;
     parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>;
 }
