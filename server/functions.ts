@@ -14,15 +14,6 @@ const FACTION_COLLECTION = 'Factions';
 
 export function useFactionFunctions() {
     /**
-     * Handle refreshing the faction information.
-     *
-     */
-    function updateMembers(faction: Factions) {
-        const memberIdentifiers = Object.keys(faction.members);
-        const members = alt.Player.all.filter((p) => p && p.valid && p && memberIdentifiers.includes(p.id.toString()));
-    }
-
-    /**
      * Get a faction character's rank based on character identifier
      *
      */
@@ -47,9 +38,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -159,9 +147,6 @@ export function useFactionFunctions() {
 
         faction.bank += amount;
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'bank', { bank: faction.bank });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -180,9 +165,6 @@ export function useFactionFunctions() {
 
         faction.bank -= amount;
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'bank', { bank: faction.bank });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -207,10 +189,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
-
         return didUpdate.status;
     }
 
@@ -226,7 +204,7 @@ export function useFactionFunctions() {
         const lowestRank = await getRankWithLowestWeight(factionId);
         const result = await db.getMany<Character>({ _id: characterID }, 'Characters');
         const character = result[0];
-        if (!character) {
+        if (!character || character.faction) {
             return false;
         }
         const onlinePlayer = getter.byCharacter(characterID);
@@ -248,9 +226,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -267,6 +242,7 @@ export function useFactionFunctions() {
 
         const result = await db.getMany<Character>({ _id: characterID }, 'Characters');
         const character = result[0];
+        if (character.faction != factionId) return false;
         const xTarget = getter.byCharacter(characterID);
         const characterData = Rebar.document.character.useCharacter(xTarget);
         if (xTarget && characterData.isValid()) {
@@ -280,9 +256,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -306,10 +279,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
-        console.log(didUpdate);
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -357,11 +326,6 @@ export function useFactionFunctions() {
 
         const removedRank = faction.grades.splice(index, 1)[0];
 
-        if (!removedRank) {
-            updateMembers(faction);
-            return false;
-        }
-
         if (replacementRank) {
             Object.keys(faction.members).forEach((key) => {
                 if (faction.members[key].gradeId !== removedRank.gradeId) {
@@ -378,11 +342,8 @@ export function useFactionFunctions() {
         const didMemberUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didGradeUpdate.status && didMemberUpdate.status) {
-            updateMembers(faction);
-        }
 
-        return true;
+        return didMemberUpdate.status;
     }
 
     /**
@@ -417,9 +378,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -535,9 +493,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -564,9 +519,6 @@ export function useFactionFunctions() {
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
 
         return didUpdate.status;
     }
@@ -585,23 +537,16 @@ export function useFactionFunctions() {
         const result = await db.getMany<Character>({ _id: characterId }, 'Characters');
         const character = result[0];
 
-        const xTarget = getter.byCharacter(characterId);
-
         if (!character) return false;
         faction.members[characterId].duty = !faction.members[characterId].duty;
 
         const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
             members: faction.members,
         });
-        if (didUpdate.status) {
-            updateMembers(faction);
-        }
-
         return didUpdate.status;
     }
 
     return {
-        updateMembers,
         setOwner,
         getFactionOwner,
         getFactionRankBelowHighest,
