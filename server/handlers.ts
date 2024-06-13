@@ -208,7 +208,7 @@ export function useFactionHandlers() {
         return { status: true, response: `Updated Faction Data` };
     }
     async function findFactionById(_id: string): Promise<Factions | null> {
-        return factions[_id] || null;
+        return factions[_id];
     }
 
     function findFactionByname(nameOrPartialName: string): Factions | null {
