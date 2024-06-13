@@ -16,8 +16,11 @@ const { useCurrency } = await api.getAsync('currency-api');
 const FACTION_COLLECTION = 'Factions';
 
 const factions: { [key: string]: Factions } = {};
+type FactionChangeCallback = (_id: string, fieldName: string) => void;
+const callbacks: FactionChangeCallback[] = [];
+
 class InternalFunctions {
-    static create(faction) {
+    static update(faction) {
         factions[faction._id as string] = faction;
     }
 }
@@ -28,9 +31,9 @@ async function init() {
         return;
     }
 
-    for (let i = 0; i < factions.length; i++) {
-        InternalFunctions.create(factions[i]);
-    }
+    factions.forEach((element) => {
+        InternalFunctions.update(element);
+    });
 }
 
 export function useFactionHandlers() {
@@ -89,7 +92,7 @@ export function useFactionHandlers() {
         }
         const createdFaction = await db.getMany<Factions>({ _id: document }, FACTION_COLLECTION);
         character.faction = document.toString();
-        InternalFunctions.create(createdFaction);
+        InternalFunctions.update(createdFaction);
 
         const didUpdate = await db.update({ _id: character._id, faction: character.faction }, 'Characters');
         return { status: false, response: document.toString() };
@@ -182,11 +185,7 @@ export function useFactionHandlers() {
      * Used to update faction data, and automatically propogate changes for
      * users with faction panel open.
      */
-    async function update<T = {}, Keys = keyof KnownKeys<Factions & T>>(
-        _id: string,
-        fieldName: Keys,
-        partialObject: Partial<Factions>,
-    ): Promise<any> {
+    async function update(_id: string, fieldName: string, partialObject: Partial<Factions>): Promise<any> {
         const faction = factions[_id];
         const typeSafeFieldName = String(fieldName);
 
@@ -194,13 +193,6 @@ export function useFactionHandlers() {
             return { status: false, response: `Faction was not found with id: ${_id}` };
         }
 
-        Object.keys(faction).forEach((key) => {
-            if (!partialObject[key]) {
-                return;
-            }
-
-            faction[key] = partialObject[key];
-        });
         try {
             const result = await db.update(
                 { _id: _id, [typeSafeFieldName]: partialObject[typeSafeFieldName] },
@@ -210,10 +202,13 @@ export function useFactionHandlers() {
         } catch (err) {
             console.log(err);
         }
+        for (let cb of callbacks) {
+            cb(_id, fieldName);
+        }
         return { status: true, response: `Updated Faction Data` };
     }
-    async function findFactionById(_id: string): Promise<Factions> | null {
-        return factions[_id];
+    async function findFactionById(_id: string): Promise<Factions | null> {
+        return factions[_id] || null;
     }
 
     function findFactionByname(nameOrPartialName: string): Factions | null {
@@ -242,10 +237,15 @@ export function useFactionHandlers() {
         return Object.values(factions) as Array<Factions>;
     }
 
+    function onUpdate(callback: FactionChangeCallback) {
+        callbacks.push(callback);
+    }
+
     return {
         create,
         remove,
         update,
+        onUpdate,
         findFactionByname,
         findFactionById,
         getAllFactions,

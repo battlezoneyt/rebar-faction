@@ -3,13 +3,13 @@ import { useRebar } from '@Server/index.js';
 import { FactionCore, Factions, Grades, JobLocal, Locations, UserFaction } from '../shared/interface.js';
 import { Character } from '@Shared/types/character.js';
 import { useFactionHandlers } from './handlers.js';
-import { syncJob } from './index.js';
+
 const API_NAME = 'faction-functions-api';
 const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
 const getter = Rebar.get.usePlayerGetter();
 const api = Rebar.useApi();
-
+const RebarEvents = Rebar.events.useEvents();
 const FACTION_COLLECTION = 'Factions';
 
 export function useFactionFunctions() {
@@ -429,6 +429,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function addLocations(
+        player: alt.Player,
         factionId: string,
         locationType: keyof Locations,
         locationName: string,
@@ -436,31 +437,35 @@ export function useFactionFunctions() {
         gradeId: string,
         parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>,
     ): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
-        const index = faction.locations[locationType].findIndex((r) => r.locationName != locationName);
-        if (index <= -1) {
-            return false;
+        const factionData = await useFactionHandlers().findFactionById(factionId);
+        if (factionData.locations[locationType] !== undefined) {
+            if (factionData.locations[locationType].length > 0) {
+                const index = factionData.locations[locationType].findIndex((r) => r.locationName != locationName);
+                if (index <= -1) {
+                    return false;
+                }
+            }
+        } else {
+            factionData.locations[locationType] = [];
         }
         let location: JobLocal = {
-            locationId: Rebar.utility.sha256Random(JSON.stringify(faction.grades)),
+            locationId: Rebar.utility.sha256Random(JSON.stringify(factionData.grades)),
             locationName: locationName,
             pos: pos,
             gradeId: gradeId,
             parkingSpots: parkingSpots,
         };
         try {
-            if (!faction.locations[locationType]) faction.locations[locationType] = [];
-
-            faction.locations[locationType].push(location);
+            factionData.locations[locationType].push(location);
         } catch (err) {
             console.log(err);
         }
-
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'locations', {
-            locations: faction.locations,
+        const didUpdate = await useFactionHandlers().update(factionData._id as string, 'locations', {
+            locations: factionData.locations,
         });
+
         if (didUpdate.status) {
-            updateMembers(faction);
+            // updateMembers(faction);
         }
 
         return didUpdate.status;
@@ -471,11 +476,14 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function removeLocations(
+        player: alt.Player,
         factionId: string,
         locationType: keyof Locations,
         locationId: string,
     ): Promise<boolean> {
         const faction = await useFactionHandlers().findFactionById(factionId);
+        if (faction.locations[locationType] === undefined) return false;
+        if (faction.locations[locationType].length < 0) return false;
         const index = faction.locations[locationType].findIndex((r) => r.locationId === locationId);
         if (index <= -1) {
             return false;
@@ -492,7 +500,7 @@ export function useFactionFunctions() {
             locations: faction.locations,
         });
         if (didUpdate.status) {
-            updateMembers(faction);
+            // updateMembers(faction);
         }
 
         return didUpdate.status;
@@ -587,7 +595,6 @@ export function useFactionFunctions() {
         });
         if (didUpdate.status) {
             updateMembers(faction);
-            syncJob(xTarget);
         }
 
         return didUpdate.status;
