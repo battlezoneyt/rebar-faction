@@ -167,7 +167,7 @@ async function registermyCommands() {
         name: '/gfl',
         desc: '/tpm ',
         options: { accountPermissions: ['admin'] },
-        callback: async (player: alt.Player, factionId: string, locationType: keyof Locations) => {
+        callback: async (player: alt.Player, factionId: string, locationType: string) => {
             const apifunction = await api.getAsync('faction-functions-api');
             const result = await apifunction.getLocationsByType(factionId, locationType);
             console.log(result);

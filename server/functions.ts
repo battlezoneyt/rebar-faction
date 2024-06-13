@@ -468,7 +468,7 @@ export function useFactionFunctions() {
      * Remove Locations based on Location Interface Type.
      * Auto-saves
      */
-    async function getLocationsByType(factionId: string, locationType: keyof Locations): Promise<Array<JobLocal>> {
+    async function getLocationsByType(factionId: string, locationType: string): Promise<Array<JobLocal>> {
         const faction = await useFactionHandlers().findFactionById(factionId);
         return faction.locations[locationType];
     }
