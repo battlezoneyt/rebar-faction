@@ -396,15 +396,17 @@ export function useFactionFunctions() {
         parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>,
     ): Promise<boolean> {
         const factionData = await useFactionHandlers().findFactionById(factionId);
-        if (factionData.locations[locationType] !== undefined) {
-            if (factionData.locations[locationType].length > 0) {
+        if (factionData.locations !== undefined) {
+            if (factionData.locations[locationType] !== undefined || factionData.locations[locationType].length > 0) {
                 const index = factionData.locations[locationType].findIndex((r) => r.locationName != locationName);
                 if (index <= -1) {
                     return false;
                 }
+            } else {
+                factionData.locations[locationType] = [];
             }
         } else {
-            factionData.locations[locationType] = [];
+            factionData.locations = {};
         }
         let location: JobLocal = {
             locationId: Rebar.utility.sha256Random(JSON.stringify(factionData.grades)),

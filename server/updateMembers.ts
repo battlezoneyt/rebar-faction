@@ -141,10 +141,10 @@ async function createMarkers(
         markers[markerType].push(
             Rebar.controllers.useMarkerGlobal(
                 {
-                    pos: position,
+                    pos: new alt.Vector3(position.x, position.y, position.z + 1),
                     color: new alt.RGBA(0, 50, 200, 255),
-                    scale: new alt.Vector3(3, 3, 1),
-                    type: MarkerType.CYLINDER,
+                    scale: new alt.Vector3(1, 1, 1),
+                    type: MarkerType.CHEVRON_UP_SINGLE,
                 },
                 10,
             ),
