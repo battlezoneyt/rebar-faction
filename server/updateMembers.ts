@@ -12,6 +12,7 @@ const messenger = Rebar.messenger.useMessenger();
 const faction = await api.getAsync('faction-functions-api');
 const factionUpdate = await api.getAsync('faction-handlers-api');
 const getter = Rebar.get.usePlayerGetter();
+const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
 
 const markers = {
     textDutyLabel: [],
@@ -47,7 +48,7 @@ async function syncJob(player: alt.Player, factionId: string) {
     try {
         const character = Rebar.document.character.useCharacter(player);
         const document = character.get();
-        const duty = await faction.getDuty(factionId, document._id);
+        const duty = await faction.getDuty(factionId, document.id);
 
         const locationTypes = [
             'dutyLocations',
@@ -74,7 +75,7 @@ async function syncJob(player: alt.Player, factionId: string) {
         if (document.faction === factionId) {
             await destroyMarkers('dutyMarkers');
             if (dutyLocations) {
-                await createMarkers('dutyMarkers', dutyLocations, 'Duty', BlipColor.BLUE, 351, handleDutyInteraction);
+                await createMarkers('dutyMarkers', dutyLocations, 'Duty', 'BLUE', 351, handleDutyInteraction);
             }
 
             await destroyMarkers('storageMarkers');
@@ -89,7 +90,7 @@ async function syncJob(player: alt.Player, factionId: string) {
                         'storageMarkers',
                         storageLocation,
                         'Storage',
-                        BlipColor.BLUE,
+                        'BLUE',
                         351,
                         handleStorageInteraction,
                     );
@@ -99,19 +100,19 @@ async function syncJob(player: alt.Player, factionId: string) {
                         'vehShopMarkers',
                         vehicleShopLocation,
                         'Vehicle Shop',
-                        BlipColor.BLUE,
+                        'BLUE',
                         351,
                         handleVehicleShopInteraction,
                     );
                 }
                 if (bossMenuLoccation) {
-                    await createMarkers('bossMenuMarkers', bossMenuLoccation, 'Boss Menu', BlipColor.BLUE, 351);
+                    await createMarkers('bossMenuMarkers', bossMenuLoccation, 'Boss Menu', 'BLUE', 351);
                 }
                 if (factionShopLocation) {
-                    await createMarkers('shopMarkers', factionShopLocation, 'Shop', BlipColor.BLUE, 351);
+                    await createMarkers('shopMarkers', factionShopLocation, 'Shop', 'BLUE', 351);
                 }
                 if (clothingLocation) {
-                    await createMarkers('clothingMarkers', clothingLocation, 'Clothing', BlipColor.BLUE, 351);
+                    await createMarkers('clothingMarkers', clothingLocation, 'Clothing', 'BLUE', 351);
                 }
             }
         } else {
@@ -126,18 +127,18 @@ async function createMarkers(
     markerType: keyof typeof markers,
     locations: any[],
     text: string,
-    color: BlipColor,
+    color: keyof typeof BlipColor,
     sprite: number,
     interactionHandler?: (player: alt.Player, colshape: alt.Colshape, uid: string) => Promise<void>,
 ) {
     locations.forEach((location) => {
         const position = location.pos;
-        markers[markerType].push(
-            Rebar.controllers.useTextLabelGlobal(
-                { text: "Press 'E' to Interact", pos: new alt.Vector3(position).add(0, 0, 1) },
-                10,
-            ),
-        );
+        // markers[markerType].push(
+        //     Rebar.controllers.useTextLabelGlobal(
+        //         { text: "Press 'E' to Interact", pos: new alt.Vector3(position).add(0, 0, 1) },
+        //         10,
+        //     ),
+        // );
         markers[markerType].push(
             Rebar.controllers.useMarkerGlobal(
                 {
@@ -167,7 +168,12 @@ async function createMarkers(
         if (interactionHandler) {
             interaction.on(interactionHandler);
         }
-
+        interaction.onEnter((player) => {
+            NotificationAPI.textLabel.create(player, { keyToPress: 'E', label: text });
+        });
+        interaction.onLeave((player) => {
+            NotificationAPI.textLabel.remove(player);
+        });
         markers[markerType].push(interaction);
     });
 }
@@ -193,7 +199,7 @@ async function handleDutyInteraction(player: alt.Player, colshape: alt.Colshape,
     try {
         const character = Rebar.document.character.useCharacter(player);
         const document = character.get();
-        await faction.setDuty(document.faction, document._id);
+        await faction.setDuty(document.faction, document.id);
     } catch (error) {
         console.error('Error in handleDutyInteraction:', error);
     }
@@ -217,9 +223,8 @@ export async function updateFactionMembers(factionId: string) {
         if (!memberIdentifiers) return;
 
         for (const memberId of memberIdentifiers) {
-            const xPlayer = getter.byCharacter(memberId);
+            const xPlayer = getter.byCharacter(parseInt(memberId));
             const oldMemberIndex = oldMembers.findIndex((f) => f._id === memberId);
-
             if (oldMemberIndex === -1) {
                 if (xPlayer && Rebar.document.character.useCharacter(xPlayer).isValid()) {
                     oldMembers.push({ _id: memberId, faction: factionId });
@@ -232,7 +237,7 @@ export async function updateFactionMembers(factionId: string) {
 
         for (let i = oldMembers.length - 1; i >= 0; i--) {
             if (!memberIdentifiers.includes(oldMembers[i]._id)) {
-                const player = getter.byCharacter(oldMembers[i]._id);
+                const player = getter.byCharacter(parseInt(oldMembers[i]._id));
                 if (player) {
                     await destroyAllMarkers();
                 }
@@ -265,7 +270,7 @@ export async function updateJobBlips(player: alt.Player) {
             markers.jobBlips.push(
                 Rebar.controllers.useBlipGlobal({
                     pos: new alt.Vector3(location.pos),
-                    color: location.color || BlipColor.BLUE,
+                    color: location.color || 'BLUE',
                     sprite: location.sprite || 351,
                     shortRange: true,
                     text: `${jobLocation.factionName}`,
@@ -277,12 +282,11 @@ export async function updateJobBlips(player: alt.Player) {
 
 function registerMessengerCommand() {
     messenger.commands.register({
-        name: '/rm',
-        desc: '/tpm',
-        options: { accountPermissions: ['admin'] },
+        name: '/rfm',
+        desc: '/remove faction member',
+        options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, charid: string) => {
-            const apifunction = await api.getAsync('faction-functions-api');
-            await apifunction.kickMember(factionId, charid);
+            await faction.kickMember(factionId, parseInt(charid));
         },
     });
 }

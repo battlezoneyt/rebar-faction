@@ -10,7 +10,7 @@ import { Character } from '@Shared/types/character.js';
 const Rebar = useRebar();
 const api = Rebar.useApi();
 
-Rebar.events.useEvents().on('character-bound', async (player: alt.Player, document: Character) => {
-    await updateJobBlips(player);
-    await updateFactionMembers(document.faction);
+alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Character) => {
+    updateJobBlips(player);
+    updateFactionMembers(document.faction);
 });

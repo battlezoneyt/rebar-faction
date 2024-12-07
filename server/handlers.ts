@@ -40,15 +40,13 @@ async function init() {
 }
 
 export function useFactionHandlers() {
-    async function create(characterOwnerID: string, _faction: FactionCore): Promise<any> {
+    async function create(characterOwnerID: number, _faction: FactionCore): Promise<any> {
         if (!_faction.factionName) {
             alt.logWarning(`Cannot create faction, missing faction name.`);
             return { status: false, response: `Cannot create faction, missing faction name.` };
         }
 
-        _faction.bank = _faction.bank ?? 0;
-
-        const [character] = await db.getMany<Character>({ _id: characterOwnerID }, 'Characters');
+        const [character] = await db.getMany<Character>({ id: characterOwnerID }, 'Characters');
         if (!character) {
             alt.logWarning(`Could not find a character with identifier: ${characterOwnerID}`);
             return { status: false, response: `Could not find a character with identifier: ${characterOwnerID}` };
@@ -58,13 +56,14 @@ export function useFactionHandlers() {
             return { status: false, response: `Character is already in a faction.` };
         }
 
-        const defaultRanks = Utility.clone.objectData<Array<Grades>>(DefaultRanks).map((rank) => {
-            rank.gradeId = Rebar.utility.sha256Random(JSON.stringify(rank));
-            return rank;
-        });
+        const defaultRanks = Utility.clone.objectData<Array<Grades>>(DefaultRanks).map((rank) => ({
+            ...rank,
+            gradeId: Rebar.utility.sha256Random(JSON.stringify(rank)),
+        }));
 
         const faction: Factions = {
             ..._faction,
+            bank: _faction.bank ?? 0,
             members: {
                 [characterOwnerID]: {
                     id: characterOwnerID,
@@ -81,13 +80,11 @@ export function useFactionHandlers() {
 
         const existingFactions = await db.getMany<Factions>({ factionName: _faction.factionName }, FACTION_COLLECTION);
         if (existingFactions.length > 0) {
-            alt.logWarning(`This Faction ` + _faction.factionName + ` already created.`);
             return { status: false, response: `Cannot insert faction into database.` };
         }
 
         const document = await db.create<Factions>(faction, FACTION_COLLECTION);
         if (!document) {
-            alt.logWarning(`Cannot insert faction into database.`);
             return { status: false, response: `Cannot insert faction into database.` };
         }
 
@@ -121,13 +118,13 @@ export function useFactionHandlers() {
                 const character = Rebar.document.character.useCharacter(xPlayer);
                 await character.set('faction', '');
 
-                if (character.get()._id === ownerIdentifier) {
+                if (character.get().id === ownerIdentifier) {
                     const characterCurrency = useCurrency(xPlayer, 'Character');
                     await characterCurrency.add('bank', faction.bank);
                 }
 
                 onlinePlayers.push(xPlayer);
-            } else if (member._id === ownerIdentifier) {
+            } else if (member.id === ownerIdentifier) {
                 member.bank += faction.bank;
                 await db.update({ _id: ownerIdentifier, bank: member.bank }, 'Characters');
             }
@@ -151,16 +148,15 @@ export function useFactionHandlers() {
 
         try {
             await db.update({ _id, [fieldName]: partialObject[fieldName] }, FACTION_COLLECTION);
+            callbacks.forEach((cb) => cb(_id, fieldName));
+            return { status: true, response: `Updated Faction Data` };
         } catch (err) {
             console.error(err);
             return { status: false, response: `Failed to update faction data.` };
         }
-
-        callbacks.forEach((cb) => cb(_id, fieldName));
-        return { status: true, response: `Updated Faction Data` };
     }
 
-    async function findFactionById(_id: string): Promise<Factions | null> {
+    function findFactionById(_id: string): Factions | null {
         return factions[_id] || null;
     }
 

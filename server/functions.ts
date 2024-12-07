@@ -1,24 +1,22 @@
 import * as alt from 'alt-server';
 import { useRebar } from '@Server/index.js';
-import { FactionCore, Factions, Grades, JobLocal, Locations, UserFaction } from '../shared/interface.js';
+import { Grades, JobLocal, Locations, UserFaction } from '../shared/interface.js';
 import { Character } from '@Shared/types/character.js';
-import { useFactionHandlers } from './handlers.js';
 
 const API_NAME = 'faction-functions-api';
 const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
 const getter = Rebar.get.usePlayerGetter();
 const api = Rebar.useApi();
-const RebarEvents = Rebar.events.useEvents();
-const FACTION_COLLECTION = 'Factions';
+const { findFactionById, update } = await api.getAsync('faction-handlers-api');
 
 export function useFactionFunctions() {
     /**
      * Get a faction character's rank based on character identifier
      *
      */
-    async function setOwner(factionId: string, characterIdentifier: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function setOwner(factionId: string, characterIdentifier: number): Promise<boolean> {
+        const faction = findFactionById(factionId);
 
         if (!faction.members[characterIdentifier]) {
             return false;
@@ -35,7 +33,7 @@ export function useFactionFunctions() {
         faction.members[characterIdentifier].gradeId = ownerRank;
         faction.members[characterIdentifier].isOwner = true;
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
+        const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
 
@@ -50,7 +48,7 @@ export function useFactionFunctions() {
      * @memberof FactionFuncs
      */
     async function getFactionOwner(factionId: string): Promise<UserFaction> | undefined {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const members = Object.values(faction.members);
         for (const member of members) {
             if (member.isOwner) {
@@ -65,7 +63,7 @@ export function useFactionFunctions() {
      *
      */
     async function getFactionRankBelowHighest(factionId: string) {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         // Descending Order. Starts at 99
         const ranks = faction.grades.sort((a, b) => {
             return b.permissionLevel - a.permissionLevel;
@@ -74,7 +72,7 @@ export function useFactionFunctions() {
         return ranks[1] ? ranks[1] : ranks[0];
     }
     async function getRankWithHighestWeight(factionId: string) {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         // Aescending Order. Ending at 99
         const ranks = faction.grades.sort((a, b) => {
             return a.permissionLevel - b.permissionLevel;
@@ -86,8 +84,8 @@ export function useFactionFunctions() {
      * Get a faction character's rank based on character identifier
      *
      */
-    async function getFactionMemberRank(factionId: string, characterId: string): Promise<Grades> | null {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function getFactionMemberRank(factionId: string, characterId: number): Promise<Grades> | null {
+        const faction = findFactionById(factionId);
         const member = faction.members[characterId];
         if (!member) {
             return null;
@@ -101,15 +99,15 @@ export function useFactionFunctions() {
      *
      */
     async function getRankWithLowestWeight(factionId: string): Promise<Grades> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
+
         let lowestRank = faction.grades[0];
 
-        for (let i = 0; i < faction.grades.length; i++) {
-            if (faction.grades[i].permissionLevel >= lowestRank.permissionLevel) {
-                continue;
+        for (let i = 1; i < faction.grades.length; i++) {
+            const grade = faction.grades[i];
+            if (grade.permissionLevel < lowestRank.permissionLevel) {
+                lowestRank = grade;
             }
-
-            lowestRank = faction.grades[i];
         }
 
         return lowestRank;
@@ -120,7 +118,7 @@ export function useFactionFunctions() {
      *
      */
     async function isRankAbove(factionId: string, _rank: string, _vsRank: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const rank = faction.grades.find((r) => r.gradeId === _rank);
         const vsRank = faction.grades.find((r) => r.gradeId === _vsRank);
         return rank.permissionLevel > vsRank.permissionLevel ? true : false;
@@ -131,7 +129,7 @@ export function useFactionFunctions() {
      *
      */
     async function isRankBelow(factionId: string, _rank: string, _vsRank: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const rank = faction.grades.find((r) => r.gradeId === _rank);
         const vsRank = faction.grades.find((r) => r.gradeId === _vsRank);
         return rank.permissionLevel < vsRank.permissionLevel ? true : false;
@@ -142,11 +140,11 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function addBank(factionId: string, amount: number): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         amount = Math.abs(amount);
 
         faction.bank += amount;
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'bank', { bank: faction.bank });
+        const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
 
         return didUpdate.status;
     }
@@ -156,7 +154,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function subBank(factionId: string, amount: number): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         amount = Math.abs(amount);
 
         if (faction.bank - amount < 0) {
@@ -164,7 +162,7 @@ export function useFactionFunctions() {
         }
 
         faction.bank -= amount;
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'bank', { bank: faction.bank });
+        const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
 
         return didUpdate.status;
     }
@@ -173,8 +171,8 @@ export function useFactionFunctions() {
      * Arbitrary way to set a rank for a character regardless of their standing.
      * Auto-saves
      */
-    async function setCharacterRank(factionId: string, characterID: string, newRank: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function setCharacterRank(factionId: string, characterId: number, newRank: string): Promise<boolean> {
+        const faction = findFactionById(factionId);
         const rankIndex = faction.grades.findIndex((x) => x.gradeId === newRank);
         if (rankIndex <= -1) {
             return false;
@@ -184,9 +182,9 @@ export function useFactionFunctions() {
             return false;
         }
 
-        faction.members[characterID].gradeId = newRank;
+        faction.members[characterId].gradeId = newRank;
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
+        const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
         return didUpdate.status;
@@ -196,21 +194,21 @@ export function useFactionFunctions() {
      * Arbitrary way to add a character to a faction based on character identifier.
      * Auto-saves
      */
-    async function addMember(factionId: string, characterID: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function addMember(factionId: string, characterId: number): Promise<string> {
+        const faction = findFactionById(factionId);
         if (!faction) {
-            return false;
+            return `faction data Not found.`;
         }
         const lowestRank = await getRankWithLowestWeight(factionId);
-        const result = await db.getMany<Character>({ _id: characterID }, 'Characters');
+        const result = await db.getMany<Character>({ id: characterId }, 'Characters');
         const character = result[0];
         if (!character || character.faction) {
-            return false;
+            return `There is no Character or character is already in a faction.`;
         }
-        const onlinePlayer = getter.byCharacter(characterID);
+        const onlinePlayer = getter.byCharacter(characterId);
         const characterData = Rebar.document.character.useCharacter(onlinePlayer);
-        faction.members[characterID] = {
-            id: characterID,
+        faction.members[characterId] = {
+            id: characterId,
             name: character.name,
             gradeId: lowestRank.gradeId,
             duty: faction.defaultDuty,
@@ -220,40 +218,44 @@ export function useFactionFunctions() {
         if (onlinePlayer && characterData.isValid()) {
             await characterData.set('faction', faction._id.toString());
         } else {
-            await db.update({ _id: characterID, faction: faction._id.toString() }, 'Characters');
+            await db.update({ _id: characterId, faction: faction._id.toString() }, 'Characters');
         }
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
-            members: faction.members,
-        });
-
-        return didUpdate.status;
+        try {
+            await update(faction._id as string, 'members', {
+                members: faction.members,
+            });
+            return `Updated Faction members successfully`;
+        } catch (err) {
+            console.error(err);
+            return `Failed to update faction member.`;
+        }
     }
 
     /**
      * Arbitrary way to kick a character from a faction.
      * Auto-saves
      */
-    async function kickMember(factionId: string, characterID: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function kickMember(factionId: string, characterId: number): Promise<boolean> {
+        const faction = findFactionById(factionId);
         if (!faction) {
             return false;
         }
 
-        const result = await db.getMany<Character>({ _id: characterID }, 'Characters');
+        const result = await db.getMany<Character>({ id: characterId }, 'Characters');
         const character = result[0];
         if (character.faction != factionId) return false;
-        const xTarget = getter.byCharacter(characterID);
+        const xTarget = getter.byCharacter(characterId);
         const characterData = Rebar.document.character.useCharacter(xTarget);
         if (xTarget && characterData.isValid()) {
             await characterData.set('faction', null);
             // alt.emitClient(xTarget, FACTION_EVENTS.PROTOCOL.REFRESH, null);
         } else if (character) {
-            const result = await db.update({ _id: characterID, faction: null }, 'Characters');
+            const result = await db.update({ _id: characterId, faction: null }, 'Characters');
         }
 
-        delete faction.members[characterID];
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
+        delete faction.members[characterId];
+        const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
 
@@ -265,7 +267,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function updateRankName(factionId: string, rankUid: string, newName: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         if (!faction) {
             return false;
         }
@@ -276,7 +278,7 @@ export function useFactionFunctions() {
 
         faction.grades[index].name = newName;
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
+        const didUpdate = await update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
 
@@ -288,7 +290,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function removeRank(factionId: string, rankUid: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const index = faction.grades.findIndex((r) => r.gradeId === rankUid);
 
         // Do not allow less than two ranks at any given time.
@@ -336,10 +338,10 @@ export function useFactionFunctions() {
             });
         }
 
-        const didGradeUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
+        const didGradeUpdate = update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
-        const didMemberUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
+        const didMemberUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
 
@@ -359,7 +361,7 @@ export function useFactionFunctions() {
         maxOnDutyPay: number,
         maxOffDutyPay: number,
     ): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const rankIndex = faction.grades.findIndex((r) => r.permissionLevel === weight);
         if (rankIndex >= 0 || maxOnDutyPay > onDutyPay || maxOffDutyPay > offDutyPay) {
             return false;
@@ -375,7 +377,7 @@ export function useFactionFunctions() {
             maxOffDutyPay: maxOffDutyPay,
         });
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
+        const didUpdate = await update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
 
@@ -395,12 +397,14 @@ export function useFactionFunctions() {
         gradeId: string,
         parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>,
     ): Promise<boolean> {
-        const factionData = await useFactionHandlers().findFactionById(factionId);
-        if (factionData.locations !== undefined) {
-            if (factionData.locations[locationType] !== undefined || factionData.locations[locationType].length > 0) {
-                const index = factionData.locations[locationType].findIndex((r) => r.locationName != locationName);
-                if (index <= -1) {
-                    return false;
+        const factionData = findFactionById(factionId);
+        if (factionData.locations != undefined) {
+            if (factionData.locations[locationType] != undefined) {
+                if (factionData.locations[locationType].length > 0) {
+                    const index = factionData.locations[locationType].findIndex((r) => r.locationName != locationName);
+                    if (index <= -1) {
+                        return false;
+                    }
                 }
             } else {
                 factionData.locations[locationType] = [];
@@ -420,7 +424,7 @@ export function useFactionFunctions() {
         } catch (err) {
             console.log(err);
         }
-        const didUpdate = await useFactionHandlers().update(factionData._id as string, 'locations', {
+        const didUpdate = await update(factionData._id as string, 'locations', {
             locations: factionData.locations,
         });
 
@@ -441,7 +445,7 @@ export function useFactionFunctions() {
         locationType: keyof Locations,
         locationId: string,
     ): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         if (faction.locations[locationType] === undefined) return false;
         if (faction.locations[locationType].length < 0) return false;
         const index = faction.locations[locationType].findIndex((r) => r.locationId === locationId);
@@ -456,7 +460,7 @@ export function useFactionFunctions() {
             console.log(err);
         }
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'locations', {
+        const didUpdate = await update(faction._id as string, 'locations', {
             locations: faction.locations,
         });
         if (didUpdate.status) {
@@ -471,7 +475,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function getLocationsByType(factionId: string, locationType: string): Promise<Array<JobLocal>> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         return faction.locations[locationType];
     }
 
@@ -481,7 +485,7 @@ export function useFactionFunctions() {
      * Auto-saves
      */
     async function updateRankWeight(factionId: string, rankUid: string, weight: number): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         if (weight <= -1 || weight >= 99) {
             return false;
         }
@@ -492,7 +496,7 @@ export function useFactionFunctions() {
         }
 
         faction.grades[index].permissionLevel = weight;
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
+        const didUpdate = await update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
 
@@ -504,7 +508,7 @@ export function useFactionFunctions() {
      *
      */
     async function swapRanks(factionId: string, swap: string, swapWith: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+        const faction = findFactionById(factionId);
         const fromIndex = faction.grades.findIndex((r) => r.gradeId === swap);
         const withIndex = faction.grades.findIndex((r) => r.gradeId === swapWith);
 
@@ -518,31 +522,31 @@ export function useFactionFunctions() {
         faction.grades[fromIndex].permissionLevel = withWeight;
         faction.grades[withIndex].permissionLevel = fromWeight;
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'grades', {
+        const didUpdate = await update(faction._id as string, 'grades', {
             grades: faction.grades,
         });
 
         return didUpdate.status;
     }
 
-    async function getDuty(factionId: string, characterId: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function getDuty(factionId: string, characterId: number): Promise<boolean> {
+        const faction = findFactionById(factionId);
 
         return faction.members[characterId].duty;
     }
 
-    async function setDuty(factionId: string, characterId: string): Promise<boolean> {
-        const faction = await useFactionHandlers().findFactionById(factionId);
+    async function setDuty(factionId: string, characterId: number): Promise<boolean> {
+        const faction = findFactionById(factionId);
         if (!faction.members[characterId]) {
             return false;
         }
-        const result = await db.getMany<Character>({ _id: characterId }, 'Characters');
+        const result = await db.getMany<Character>({ id: characterId }, 'Characters');
         const character = result[0];
 
         if (!character) return false;
         faction.members[characterId].duty = !faction.members[characterId].duty;
 
-        const didUpdate = await useFactionHandlers().update(faction._id as string, 'members', {
+        const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
         return didUpdate.status;

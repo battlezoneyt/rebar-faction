@@ -6,7 +6,7 @@ declare module '@Shared/types/character.js' {
     }
 }
 export interface UserFaction {
-    id: string;
+    id: number;
     name: string;
     duty: boolean;
     gradeId: string;
