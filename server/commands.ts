@@ -11,8 +11,8 @@ const getter = rebar.get.usePlayerGetter();
 const apifunction = await api.getAsync('faction-functions-api');
 async function registermyCommands() {
     messenger.commands.register({
-        name: '/fcreate',
-        desc: '/tpm ',
+        name: 'fcreate',
+        desc: '/fcreate to create a faction',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, characterId: string, factionName: string, Label: string) => {
             try {
@@ -32,8 +32,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/fdelete',
-        desc: '/tpm ',
+        name: 'fdelete',
+        desc: '/fdelete to delete a faction from the system',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string) => {
             try {
@@ -46,8 +46,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/add',
-        desc: '/tpm ',
+        name: 'fadd',
+        desc: '/fadd add new member to faction',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, charid: string) => {
             const result: string = await apifunction.addMember(factionId, parseInt(charid));
@@ -56,8 +56,8 @@ async function registermyCommands() {
     });
 
     messenger.commands.register({
-        name: '/gaf',
-        desc: '/tpm ',
+        name: 'fgetallf',
+        desc: '/fgetallf to get all faction in the server',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, rankid: string, name: string) => {
             const apifunction = await api.getAsync('faction-handlers-api');
@@ -67,32 +67,32 @@ async function registermyCommands() {
     });
 
     messenger.commands.register({
-        name: '/cname',
-        desc: '/tpm ',
+        name: 'fchangerankname',
+        desc: '/fchangerankname change the faction rank name ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, name: string) => {
             const result = await apifunction.updateRankName(factionId, rankid, name);
         },
     });
     messenger.commands.register({
-        name: '/sowner',
-        desc: '/tpm ',
+        name: 'fsetowner',
+        desc: '/fsetowner to set faction owner ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, cid: string) => {
             const result = await apifunction.setOwner(factionId, parseInt(cid));
         },
     });
     messenger.commands.register({
-        name: '/fowner',
-        desc: '/tpm ',
+        name: 'ffindowner',
+        desc: '/ffindowner to find daction owner ',
         options: { permissions: ['admin'] },
-        callback: async (player: alt.Player, factionId: string, cid: string) => {
+        callback: async (player: alt.Player, factionId: string) => {
             const result = await apifunction.getFactionOwner(factionId);
         },
     });
     messenger.commands.register({
-        name: '/fmrank',
-        desc: '/tpm ',
+        name: 'fgetmemberrank',
+        desc: '/fgetmemberrank to get faction member rank ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, cid: string) => {
             const result = await apifunction.getFactionMemberRank(factionId, parseInt(cid));
@@ -100,8 +100,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/crank',
-        desc: '/tpm ',
+        name: 'faddnewrank',
+        desc: '/faddnewrank to add a new rank',
         options: { permissions: ['admin'] },
         callback: async (
             player: alt.Player,
@@ -127,8 +127,8 @@ async function registermyCommands() {
     });
 
     messenger.commands.register({
-        name: '/urw',
-        desc: '/tpm ',
+        name: 'fupdaterankweight',
+        desc: '/fupdaterankweight to update Rank weight ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, Weight: string) => {
             const result = await apifunction.updateRankWeight(factionId, rankid, parseInt(Weight));
@@ -136,8 +136,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/sr',
-        desc: '/tpm ',
+        name: 'fswaprank',
+        desc: '/fswaprank swap between ranks ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, swaprankid: string) => {
             const result = await apifunction.swapRanks(factionId, rankid, swaprankid);
@@ -146,8 +146,8 @@ async function registermyCommands() {
     });
 
     messenger.commands.register({
-        name: '/rfl',
-        desc: '/tpm ',
+        name: 'fremovelocation',
+        desc: '/fremovelocation remove a faction location based on location Type',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, locationType: keyof Locations, locationId: string) => {
             const result = await apifunction.removeLocations(player, factionId, locationType, locationId);
@@ -156,8 +156,8 @@ async function registermyCommands() {
     });
 
     messenger.commands.register({
-        name: '/gfl',
-        desc: '/tpm ',
+        name: 'fgetlocation',
+        desc: '/fgetlocation get faction location based on location Type',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, locationType: string) => {
             const result = await apifunction.getLocationsByType(factionId, locationType);
@@ -165,9 +165,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/gduty',
-        desc: '/tpm ',
-        options: { permissions: ['admin'] },
+        name: 'fgetduty',
+        desc: '/fgetduty get player duty status',
         callback: async (player: alt.Player, factionId: string) => {
             const character = rebar.document.character.useCharacter(player);
             const document = character.get();
@@ -183,8 +182,8 @@ async function registermyCommands() {
         },
     });
     messenger.commands.register({
-        name: '/afl',
-        desc: '/tpm ',
+        name: 'faddlocation',
+        desc: '/faddlocation add new location for faction ',
         options: { permissions: ['admin'] },
         callback: async (
             player: alt.Player,

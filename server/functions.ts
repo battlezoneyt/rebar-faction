@@ -145,7 +145,7 @@ export function useFactionFunctions() {
 
         faction.bank += amount;
         const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
-
+        console.log(didUpdate);
         return didUpdate.status;
     }
 

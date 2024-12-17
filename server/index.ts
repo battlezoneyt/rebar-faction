@@ -12,5 +12,19 @@ const api = Rebar.useApi();
 
 alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Character) => {
     updateJobBlips(player);
-    updateFactionMembers(document.faction);
+    console.log(document.faction);
+    if (document.faction) {
+        console.log(document.faction);
+        await updateFactionMembers(document.faction);
+    }
+});
+
+alt.on('playerDisconnect', async (player: alt.Player) => {
+    const character = Rebar.document.character.useCharacter(player);
+    if (!character) return;
+    const document = character.get();
+    if (!document || !document.faction) return;
+    if (document.faction) {
+        await updateFactionMembers(document.faction);
+    }
 });
