@@ -15,32 +15,37 @@ const { useCurrency } = await api.getAsync('currency-api');
 const FACTION_COLLECTION = 'Factions';
 
 const factions: { [key: string]: Factions } = {};
-type FactionChangeCallback = (_id: string, fieldName: string) => void;
+type FactionChangeCallback = (updateInfo: { factionId: string; fieldName: string }) => void;
 const callbacks: FactionChangeCallback[] = [];
-
 class InternalFunctions {
     static update(faction: Factions) {
         factions[faction._id as string] = faction;
     }
 }
 
-async function init() {
-    const factionList = await db.getAll<{ _id: string }>(FACTION_COLLECTION);
-    if (factionList.length === 0) {
-        alt.logWarning(`No Factions have been created`);
-        return;
-    }
+export async function init() {
+    try {
+        // Fetch all faction data in a single query
+        const factionList = await db.getAll<Factions>(FACTION_COLLECTION);
 
-    for (const { _id } of factionList) {
-        const [fullFaction] = await db.getMany<Factions>({ _id }, FACTION_COLLECTION);
-        if (fullFaction) {
-            InternalFunctions.update(fullFaction);
+        if (!factionList || factionList.length === 0) {
+            alt.logWarning(`No Factions have been created`);
+            return;
         }
+
+        // Load all factions into memory
+        for (const faction of factionList) {
+            InternalFunctions.update(faction);
+        }
+
+        alt.log(`Loaded ${factionList.length} factions successfully.`);
+    } catch (error) {
+        alt.logError(`Error initializing factions: ${error.message}`);
     }
 }
 
 export function useFactionHandlers() {
-    async function create(characterOwnerID: number, _faction: FactionCore): Promise<any> {
+    async function create(characterOwnerID: number, _faction: any): Promise<any> {
         if (!_faction.factionName) {
             alt.logWarning(`Cannot create faction, missing faction name.`);
             return { status: false, response: `Cannot create faction, missing faction name.` };
@@ -94,7 +99,6 @@ export function useFactionHandlers() {
 
         character.faction = factionId;
         await db.update({ _id: character._id, faction: character.faction }, 'Characters');
-
         return { status: true, response: factionId };
     }
 
@@ -148,7 +152,7 @@ export function useFactionHandlers() {
 
         try {
             await db.update({ _id, [fieldName]: partialObject[fieldName] }, FACTION_COLLECTION);
-            callbacks.forEach((cb) => cb(_id, fieldName));
+            callbacks.forEach((cb) => cb({ factionId: _id, fieldName }));
             return { status: true, response: `Updated Faction Data` };
         } catch (err) {
             console.error(err);
@@ -195,5 +199,3 @@ declare global {
 }
 
 Rebar.useApi().register(API_NAME, useFactionHandlers());
-
-init();

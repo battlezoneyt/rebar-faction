@@ -14,7 +14,7 @@ export interface UserFaction {
 }
 
 export interface FactionCore {
-    _id?: unknown | string;
+    _id: string;
     factionName: string;
     label: string;
     bank: number;

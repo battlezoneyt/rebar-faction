@@ -395,6 +395,8 @@ export function useFactionFunctions() {
         locationName: string,
         pos: alt.Vector3,
         gradeId: string,
+        sprite?: number,
+        color?: number,
         parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>,
     ): Promise<boolean> {
         const factionData = findFactionById(factionId);
@@ -418,6 +420,8 @@ export function useFactionFunctions() {
             pos: pos,
             gradeId: gradeId,
             parkingSpots: parkingSpots,
+            sprite: sprite | 1,
+            color: color | 1,
         };
         try {
             factionData.locations[locationType].push(location);
@@ -535,7 +539,7 @@ export function useFactionFunctions() {
         return faction.members[characterId].duty;
     }
 
-    async function setDuty(factionId: string, characterId: number): Promise<boolean> {
+    async function setDuty(factionId: string, characterId: number, value?: boolean): Promise<boolean> {
         const faction = findFactionById(factionId);
         if (!faction.members[characterId]) {
             return false;
@@ -544,7 +548,11 @@ export function useFactionFunctions() {
         const character = result[0];
 
         if (!character) return false;
-        faction.members[characterId].duty = !faction.members[characterId].duty;
+        if (value !== undefined) {
+            faction.members[characterId].duty = value;
+        } else {
+            faction.members[characterId].duty = !faction.members[characterId].duty;
+        }
 
         const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
