@@ -24,7 +24,6 @@ const factionMarkers = {};
 
 let oldMembers: { _id: string; faction: string }[] = [];
 
-const factionBlips = new Map<string, Map<alt.Player, any>>(); // Map of factions to on-duty players and their blips
 const lastPositions = new WeakMap<alt.Player, alt.Vector3>();
 const playerMarkers = new Map<alt.Player, any[]>();
 
@@ -72,7 +71,7 @@ async function syncJob(player: alt.Player, factionId: string) {
             }
 
             if (duty) {
-                await addPlayerToFactionBlips(player, factionId);
+                // await addPlayerToFactionBlips(player, document.id, factionId);
 
                 if (storageLocation) {
                     await createMarkers(
@@ -142,7 +141,7 @@ async function syncJob(player: alt.Player, factionId: string) {
                 await destroyMarkers(player, document.id, factionId, 'bossMenuMarkers');
                 await destroyMarkers(player, document.id, factionId, 'shopMarkers');
                 await destroyMarkers(player, document.id, factionId, 'clothingMarkers');
-                await removePlayerFromFactionBlips(player, factionId);
+                // await removePlayerFromFactionBlips(player, document.id, factionId);
             }
         } else {
             await destroyAllMarkers(player, document.id, factionId);
@@ -239,6 +238,10 @@ function ensureFactionMarkersStructure(factionId: string, playerId: number, mark
 }
 
 async function destroyMarkers(player: alt.Player, characterId: number, factionId: string, markerType: string) {
+    if (!player || !player.valid) {
+        console.warn(`Player is invalid for destroyMarkers of type ${markerType}.`);
+        return;
+    }
     const playerId = characterId;
 
     try {
@@ -474,101 +477,5 @@ async function handleDisconnect(player: alt.Player) {
     if (!document || !document.faction) return;
     if (document.faction) {
         await faction.setDuty(document.faction, document.id, false);
-        removePlayerFromFactionBlips(player, document.faction);
-    }
-}
-
-alt.setInterval(() => {
-    factionBlips.forEach((blipMap, faction) => {
-        blipMap.forEach((playerBlips, player) => {
-            if (!player || !player.valid) {
-                removePlayerFromFactionBlips(player, faction);
-                return;
-            }
-
-            const lastPos = lastPositions.get(player);
-            if (!lastPos || Utility.vector.distance(lastPos, player.pos) > 5) {
-                lastPositions.set(player, player.pos);
-
-                // Update the player's position for all on-duty players
-                blipMap.forEach((otherBlips) => {
-                    const blip = otherBlips.get(player);
-                    if (blip) {
-                        blip.update({ pos: player.pos });
-                    }
-                });
-            }
-        });
-    });
-}, 1000); // Adjust interval duration as needed
-
-async function addPlayerToFactionBlips(player: alt.Player, faction: string) {
-    if (!factionBlips.has(faction)) {
-        factionBlips.set(faction, new Map());
-    }
-    const blipMap = factionBlips.get(faction);
-
-    // Add the new player's blip for all other on-duty players
-    blipMap.forEach((otherBlip, otherPlayer) => {
-        const newBlip = Rebar.controllers.useBlipLocal(otherPlayer, {
-            pos: player.pos,
-            color: BlipColor.BLUE,
-            sprite: 1,
-            shortRange: false,
-            text: `${player.name} (On Duty)`,
-        });
-        otherBlip.set(player, newBlip);
-    });
-
-    // Add all other players' blips to the new player's view
-    const newPlayerBlips = new Map();
-    blipMap.forEach((otherBlip, otherPlayer) => {
-        const blip = Rebar.controllers.useBlipLocal(player, {
-            pos: otherPlayer.pos,
-            color: BlipColor.BLUE,
-            sprite: 1,
-            shortRange: false,
-            text: `${otherPlayer.name} (On Duty)`,
-        });
-        newPlayerBlips.set(otherPlayer, blip);
-    });
-
-    // Add the new player to the faction blips map
-    const selfBlip = Rebar.controllers.useBlipLocal(player, {
-        pos: player.pos,
-        color: BlipColor.BLUE,
-        sprite: 1,
-        shortRange: false,
-        text: `${player.name} (On Duty)`,
-    });
-    blipMap.set(player, newPlayerBlips);
-    newPlayerBlips.set(player, selfBlip);
-}
-
-async function removePlayerFromFactionBlips(player: alt.Player, faction: string) {
-    const blipMap = factionBlips.get(faction);
-
-    if (!blipMap) return;
-
-    // Remove the player's blip from all other players
-    blipMap.forEach((otherBlips, otherPlayer) => {
-        const blip = otherBlips.get(player);
-        if (blip) {
-            blip.destroy();
-            otherBlips.delete(player);
-        }
-    });
-
-    // Remove all blips that the player sees
-    const playerBlips = blipMap.get(player);
-    if (playerBlips) {
-        playerBlips.forEach((blip) => blip.destroy());
-    }
-
-    blipMap.delete(player);
-
-    // Remove the faction entry if no players remain
-    if (blipMap.size === 0) {
-        factionBlips.delete(faction);
     }
 }
