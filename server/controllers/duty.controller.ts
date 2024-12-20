@@ -11,6 +11,30 @@ const getter = Rebar.get.usePlayerGetter();
 
 const factionBlips = new Map<string, Map<alt.Player, any>>(); // Map of factions to on-duty players and their blips
 
+export interface DutyChangeEvent {
+    player: alt.Player;
+    characterId: number;
+    factionId: string;
+    isOnDuty: boolean;
+}
+
+type DutyChangeCallback = (event: DutyChangeEvent) => void;
+const dutyChangeHandlers = new Set<DutyChangeCallback>();
+
+export function onDutyChange(callback: DutyChangeCallback): void {
+    dutyChangeHandlers.add(callback);
+}
+
+export function offDutyChange(callback: DutyChangeCallback): void {
+    dutyChangeHandlers.delete(callback);
+}
+
+function triggerDutyChange(event: DutyChangeEvent): void {
+    dutyChangeHandlers.forEach((handler) => {
+        handler(event);
+    });
+}
+
 export async function getDuty(factionId: string, characterId: number): Promise<boolean> {
     const faction = findFactionById(factionId);
 
@@ -22,27 +46,33 @@ export async function setDuty(factionId: string, characterId: number, value?: bo
     if (!faction.members[characterId]) {
         return false;
     }
+
     const result = await db.getMany<Character>({ id: characterId }, 'Characters');
     const character = result[0];
 
     if (!character) return false;
-    if (value !== undefined) {
-        faction.members[characterId].duty = value;
-    } else {
-        faction.members[characterId].duty = !faction.members[characterId].duty;
-    }
+
+    const player = getter.byCharacter(characterId);
+    if (!player) return false;
+
+    // Set the duty status
+    const newDutyStatus = value !== undefined ? value : !faction.members[characterId].duty;
+    faction.members[characterId].duty = newDutyStatus;
+
     const didUpdate = await update(faction._id as string, 'members', {
         members: faction.members,
     });
-    const player = getter.byCharacter(characterId);
-    if (faction.members[characterId].duty) {
-        addPlayerToFactionBlips(player, characterId, factionId);
-    } else {
-        removePlayerFromFactionBlips(player, characterId, factionId);
-    }
+
+    // Trigger duty change event
+    triggerDutyChange({
+        player,
+        characterId,
+        factionId,
+        isOnDuty: newDutyStatus,
+    });
+
     return didUpdate.status;
 }
-
 export async function addPlayerToFactionBlips(player: alt.Player, characterId: number, factionId: string) {
     if (!player || !player.valid) {
         // console.error('Invalid player object in addPlayerToFactionBlips.');
@@ -156,3 +186,28 @@ export async function removePlayerFromFactionBlips(player: alt.Player, character
 
     // console.log(`Blip for ${player.name} removed and detached from all players.`);
 }
+
+function handleFactionBlips({ player, characterId, factionId, isOnDuty }: DutyChangeEvent) {
+    if (isOnDuty) {
+        addPlayerToFactionBlips(player, characterId, factionId);
+    } else {
+        removePlayerFromFactionBlips(player, characterId, factionId);
+    }
+}
+
+function updateFaction(player: alt.Player, factionId: string) {
+    const character = Rebar.document.character.useCharacter(player);
+    const duty = getDuty(factionId, character.get().id);
+    if (duty) {
+        setDuty(factionId, character.get().id, false);
+    }
+}
+
+// Register the blip handler
+onDutyChange(handleFactionBlips);
+
+alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Character) => {
+    if (document.faction) {
+        updateFaction(player, document.faction);
+    }
+});

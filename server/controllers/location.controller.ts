@@ -5,6 +5,17 @@ import { findFactionById, update } from './faction.controller.js';
 
 const Rebar = useRebar();
 
+export interface LocationChangeEvent {
+    player: alt.Player;
+    factionId: string;
+    locationType: keyof Locations;
+    location: JobLocal;
+    action: 'add' | 'remove';
+}
+
+type LocationChangeCallback = (event: LocationChangeEvent) => void;
+const locationChangeHandlers = new Set<LocationChangeCallback>();
+
 /**
  * Adds Locations based on Location Interface Type.
  * Auto-saves
@@ -32,43 +43,39 @@ export async function addLocations(
     const existingLocation = factionData.locations[locationType].find((r) => r.locationName === locationName);
     if (existingLocation) return false;
 
-    // if (factionData.locations != undefined) {
-    //     if (factionData.locations[locationType] != undefined) {
-    //         if (factionData.locations[locationType].length > 0) {
-    //             const index = factionData.locations[locationType].findIndex((r) => r.locationName != locationName);
-    //             if (index <= -1) {
-    //                 return false;
-    //             }
-    //         }
-    //     } else {
-    //         factionData.locations[locationType] = [];
-    //     }
-    // } else {
-    //     factionData.locations = {};
-    // }
     let location: JobLocal = {
         locationId: Rebar.utility.sha256Random(JSON.stringify(factionData.grades)),
         locationName: locationName,
         pos: pos,
         gradeId: gradeId,
         parkingSpots: parkingSpots,
-        sprite: sprite | 1,
-        color: color | 1,
+        sprite: sprite || 1,
+        color: color || 1,
     };
+
     try {
         factionData.locations[locationType].push(location);
+
+        const didUpdate = await update(factionData._id as string, 'locations', {
+            locations: factionData.locations,
+        });
+
+        if (didUpdate.status) {
+            // Trigger location change event
+            triggerLocationChange({
+                player,
+                factionId,
+                locationType,
+                location,
+                action: 'add',
+            });
+        }
+
+        return didUpdate.status;
     } catch (err) {
         console.log(err);
+        return false;
     }
-    const didUpdate = await update(factionData._id as string, 'locations', {
-        locations: factionData.locations,
-    });
-
-    if (didUpdate.status) {
-        // updateMembers(faction);
-    }
-
-    return didUpdate.status;
 }
 
 /**
@@ -84,33 +91,56 @@ export async function removeLocations(
     const faction = findFactionById(factionId);
     if (faction.locations[locationType] === undefined) return false;
     if (faction.locations[locationType].length < 0) return false;
-    const index = faction.locations[locationType].findIndex((r) => r.locationId === locationId);
-    if (index <= -1) {
-        return false;
-    }
+
+    const locationToRemove = faction.locations[locationType].find((r) => r.locationId === locationId);
+    if (!locationToRemove) return false;
+
     try {
         faction.locations[locationType] = faction.locations[locationType].filter(
             (location) => location.locationId !== locationId,
         );
+
+        const didUpdate = await update(faction._id as string, 'locations', {
+            locations: faction.locations,
+        });
+
+        if (didUpdate.status) {
+            // Trigger location change event
+            triggerLocationChange({
+                player,
+                factionId,
+                locationType,
+                location: locationToRemove,
+                action: 'remove',
+            });
+        }
+
+        return didUpdate.status;
     } catch (err) {
         console.log(err);
+        return false;
     }
-
-    const didUpdate = await update(faction._id as string, 'locations', {
-        locations: faction.locations,
-    });
-    if (didUpdate.status) {
-        // updateMembers(faction);
-    }
-
-    return didUpdate.status;
 }
 
 /**
  * Remove Locations based on Location Interface Type.
  * Auto-saves
  */
-export async function getLocationsByType(factionId: string, locationType: string): Promise<Array<JobLocal>> {
+export async function getLocationsByType(factionId: string, locationType: keyof Locations): Promise<JobLocal[]> {
     const faction = findFactionById(factionId);
     return faction.locations[locationType];
+}
+
+export function onLocationChange(callback: LocationChangeCallback): void {
+    locationChangeHandlers.add(callback);
+}
+
+export function offLocationChange(callback: LocationChangeCallback): void {
+    locationChangeHandlers.delete(callback);
+}
+
+function triggerLocationChange(event: LocationChangeEvent): void {
+    locationChangeHandlers.forEach((handler) => {
+        handler(event);
+    });
 }

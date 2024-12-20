@@ -6,8 +6,11 @@ import './controllers/grade.controller.js';
 import './controllers/location.controller.js';
 import './controllers/duty.controller.js';
 import './src/commands.js';
+import './controllers/blip.manager.js';
 import { init } from './controllers/faction.controller.js';
-import { updateJobBlips } from './src/updateMembers.js';
+import { initializeAllGlobalJobBlips } from './controllers/blip.manager.js';
+// import { updateJobBlips } from './src/updateMembers.js';
 
 await init();
-await updateJobBlips();
+await initializeAllGlobalJobBlips();
+// await updateJobBlips();

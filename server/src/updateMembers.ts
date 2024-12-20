@@ -4,10 +4,10 @@ import alt from 'alt-server';
 import { MarkerType } from '../../../../main/shared/types/marker.js';
 import { BlipColor } from '@Shared/types/blip.js';
 import { Factions, JobLocal } from '../../shared/interface.js';
-import { getDuty, getLocationsByType, setDuty } from './functions.js';
 import { Character } from '@Shared/types/character.js';
-
-import { findFactionById, getAllFactions, onUpdate } from './handlers.js';
+import { getDuty, setDuty } from '../controllers/duty.controller.js';
+import { getLocationsByType } from '../controllers/location.controller.js';
+import { findFactionById, getAllFactions, onUpdate } from '../controllers/faction.controller.js';
 
 const Rebar = useRebar();
 const api = Rebar.useApi();
