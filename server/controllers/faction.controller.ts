@@ -176,6 +176,38 @@ export function getAllFactions(): Array<Factions> {
     return Object.values(factions);
 }
 
+/**
+ * Add to faction bank.
+ * Auto-saves
+ */
+export async function addBank(factionId: string, amount: number): Promise<boolean> {
+    const faction = findFactionById(factionId);
+    amount = Math.abs(amount);
+
+    faction.bank += amount;
+    const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
+
+    return didUpdate.status;
+}
+
+/**
+ * Remove from faction bank, returns false if amount is too high.
+ * Auto-saves
+ */
+export async function subBank(factionId: string, amount: number): Promise<boolean> {
+    const faction = findFactionById(factionId);
+    amount = Math.abs(amount);
+
+    if (faction.bank - amount < 0) {
+        return false;
+    }
+
+    faction.bank -= amount;
+    const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
+
+    return didUpdate.status;
+}
+
 export function onUpdate(callback: FactionChangeCallback) {
     callbacks.push(callback);
 }

@@ -1,82 +1,98 @@
 import { useApi } from '@Server/api/index.js';
+import { addMember, getFactionOwner, kickMember, setOwner } from './controllers/member.controller.js';
 import {
-    addBank,
-    addLocations,
-    addMember,
-    addPlayerToFactionBlips,
     addRank,
-    getDuty,
     getFactionMemberRank,
-    getFactionOwner,
     getFactionRankBelowHighest,
-    getLocationsByType,
     getRankWithHighestWeight,
     getRankWithLowestWeight,
     isRankAbove,
     isRankBelow,
-    kickMember,
-    removeLocations,
-    removePlayerFromFactionBlips,
     removeRank,
     setCharacterRank,
-    setDuty,
-    setOwner,
-    subBank,
     swapRanks,
     updateRankName,
     updateRankWeight,
-} from './src/functions.js';
-import { create, findFactionById, findFactionByName, getAllFactions, remove, update } from './src/handlers.js';
-import { useBlipGlobal } from './src/blip.js';
+} from './controllers/grade.controller.js';
+import {
+    addBank,
+    create,
+    findFactionById,
+    findFactionByName,
+    getAllFactions,
+    remove,
+    subBank,
+    update,
+} from './controllers/faction.controller.js';
+import { addLocations, getLocationsByType, removeLocations } from './controllers/location.controller.js';
+import { useBlipGlobal } from './controllers/blip.controller.js';
+import {
+    addPlayerToFactionBlips,
+    getDuty,
+    removePlayerFromFactionBlips,
+    setDuty,
+} from './controllers/duty.controller.js';
 
 const API_NAME = 'rebar-faction-api';
 
 function useFactionAPI() {
-    const handlers = {
-        setFactionOwner: setOwner,
-        getFactionOwner: getFactionOwner,
+    const gradeHandlers = {
         nextHigherRankThanOwner: getFactionRankBelowHighest,
         getHighestRankWeight: getRankWithHighestWeight,
         getFactionMemberRank: getFactionMemberRank,
         getLowestRankWeight: getRankWithLowestWeight,
         isRankAbove: isRankAbove,
         isRankBelow: isRankBelow,
-        addFactionBank: addBank,
-        subFactionBank: subBank,
         setFactionMemberRank: setCharacterRank,
-        addFactionMember: addMember,
-        removeFactionMember: kickMember,
         updateRankName: updateRankName,
         addRank: addRank,
         removeRank: removeRank,
-        addLocations: addLocations,
-        removeLocations: removeLocations,
-        getLocationsByType: getLocationsByType,
-        updateRankWeight: updateRankWeight,
         swapRanks: swapRanks,
-        getDuty: getDuty,
-        setDuty: setDuty,
-        addPlayerBlips: addPlayerToFactionBlips,
-        removePlayerBlips: removePlayerFromFactionBlips,
+        updateRankWeight: updateRankWeight,
     };
 
-    const functions = {
+    const factionHandlers = {
         createFaction: create,
         removeFaction: remove,
         updateFaction: update,
         findFactionById: findFactionById,
         findFactionByName: findFactionByName,
         getAllFactions: getAllFactions,
+        addFactionBank: addBank,
+        subFactionBank: subBank,
     };
 
-    const blips = {
+    const locationHandlers = {
+        addLocations: addLocations,
+        removeLocations: removeLocations,
+        getLocationsByType: getLocationsByType,
+    };
+
+    const dutyHandlers = {
+        getDuty: getDuty,
+        setDuty: setDuty,
+        addPlayerBlips: addPlayerToFactionBlips,
+        removePlayerBlips: removePlayerFromFactionBlips,
+    };
+
+    const memberHandlers = {
+        setFactionOwner: setOwner,
+        getFactionOwner: getFactionOwner,
+        addFactionMember: addMember,
+        removeFactionMember: kickMember,
+    };
+
+    const blipsHandlers = {
         useBlipGlobalLocal: useBlipGlobal,
     };
 
     return {
-        handlers,
-        functions,
-        blips,
+        gradeHandlers,
+        factionHandlers,
+        locationHandlers,
+        dutyHandlers,
+        memberHandlers,
+        blipsHandlers,
     };
 }
 
