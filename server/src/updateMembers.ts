@@ -1,38 +1,33 @@
 import { useRebar } from '@Server/index.js';
 import alt from 'alt-server';
 
-import { MarkerType } from '../../../main/shared/types/marker.js';
+import { MarkerType } from '../../../../main/shared/types/marker.js';
 import { BlipColor } from '@Shared/types/blip.js';
-import { Factions, JobLocal } from '../shared/interface.js';
-import { useFactionFunctions } from './functions.js';
+import { Factions, JobLocal } from '../../shared/interface.js';
+import { getDuty, getLocationsByType, setDuty } from './functions.js';
 import { Character } from '@Shared/types/character.js';
-import * as Utility from '@Shared/utility/index.js';
+
+import { findFactionById, getAllFactions, onUpdate } from './handlers.js';
 
 const Rebar = useRebar();
 const api = Rebar.useApi();
 const messenger = Rebar.messenger.useMessenger();
-const faction = await api.getAsync('faction-functions-api');
-const factionUpdate = await api.getAsync('faction-handlers-api');
+
 const getter = Rebar.get.usePlayerGetter();
 const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
 const jobLocations: { joblocation: JobLocal[]; factionId: string }[] = [];
 const createdBlips = new Map<string, any>();
 
-const { registerContext } = await api.getAsync('g-lib-api');
-
 const factionMarkers = {};
 
 let oldMembers: { _id: string; faction: string }[] = [];
-
-const lastPositions = new WeakMap<alt.Player, alt.Vector3>();
-const playerMarkers = new Map<alt.Player, any[]>();
 
 async function syncJob(player: alt.Player, factionId: string) {
     try {
         const character = Rebar.document.character.useCharacter(player);
         const document = character.get();
         if (!document || !character || !document.faction) return;
-        const duty = await faction.getDuty(factionId, document.id);
+        const duty = await getDuty(factionId, document.id);
 
         const locationTypes = [
             'dutyLocations',
@@ -43,9 +38,7 @@ async function syncJob(player: alt.Player, factionId: string) {
             'clothingLoc',
         ];
 
-        const locations = await Promise.all(
-            locationTypes.map((type) => faction.getLocationsByType(factionId, type) || []),
-        );
+        const locations = await Promise.all(locationTypes.map((type) => getLocationsByType(factionId, type) || []));
 
         const [
             dutyLocations,
@@ -301,7 +294,7 @@ async function handleDutyInteraction(player: alt.Player, destroy) {
     try {
         const character = Rebar.document.character.useCharacter(player);
         const document = character.get();
-        await faction.setDuty(document.faction, document.id);
+        await setDuty(document.faction, document.id);
     } catch (error) {
         console.error('Error in handleDutyInteraction:', error);
     }
@@ -315,7 +308,7 @@ async function handleVehicleShopInteraction(player: alt.Player, destroy) {
 }
 export async function updateFactionMembers(factionId: string) {
     try {
-        const factionData = await factionUpdate.findFactionById(factionId);
+        const factionData = findFactionById(factionId);
 
         const memberIdentifiers = Object.keys(factionData.members);
         if (!memberIdentifiers) return;
@@ -349,7 +342,7 @@ export async function updateFactionMembers(factionId: string) {
     }
 }
 
-factionUpdate.onUpdate(({ factionId, fieldName }) => {
+onUpdate(({ factionId, fieldName }) => {
     updateFactionMembers(factionId);
     if (fieldName === 'locations') {
         updateJobBlips();
@@ -357,7 +350,7 @@ factionUpdate.onUpdate(({ factionId, fieldName }) => {
 });
 
 export async function updateJobBlips() {
-    const allFactions: Factions[] = factionUpdate.getAllFactions();
+    const allFactions: Factions[] = getAllFactions();
     for (const data of allFactions) {
         const existingFaction = jobLocations.find((item) => item.factionId === data._id);
         console.log(`Processing faction: ${data.label} (ID: ${data._id})`);
@@ -476,6 +469,6 @@ async function handleDisconnect(player: alt.Player) {
     const document = character.get();
     if (!document || !document.faction) return;
     if (document.faction) {
-        await faction.setDuty(document.faction, document.id, false);
+        await setDuty(document.faction, document.id, false);
     }
 }

@@ -1,9 +1,10 @@
 import alt from 'alt-server';
 
-import './functions.js';
-import './commands.js';
-import { init } from './handlers.js';
-import { updateJobBlips } from './updateMembers.js';
+import './src/functions.js';
+import './src/commands.js';
+import { init } from './src/handlers.js';
+import { updateJobBlips } from './src/updateMembers.js';
+import './api.js';
 
 await init();
 await updateJobBlips();

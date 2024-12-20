@@ -1,13 +1,26 @@
 import { useRebar } from '@Server/index.js';
 import alt from 'alt-server';
-import { useCharacter } from '@Server/document/index.js';
-import { Factions, Locations } from '@Plugins/rebar-faction/shared/interface.js';
+import { Locations } from '@Plugins/rebar-faction/shared/interface.js';
+import {
+    addLocations,
+    addMember,
+    addRank,
+    getDuty,
+    getFactionMemberRank,
+    getFactionOwner,
+    getLocationsByType,
+    kickMember,
+    removeLocations,
+    setOwner,
+    swapRanks,
+    updateRankName,
+    updateRankWeight,
+} from './functions.js';
+import { create, getAllFactions, remove } from './handlers.js';
 
 const rebar = useRebar();
 const messenger = rebar.messenger.useMessenger();
-const api = rebar.useApi();
-const getter = rebar.get.usePlayerGetter();
-const apifunction = await api.getAsync('faction-functions-api');
+
 async function registermyCommands() {
     messenger.commands.register({
         name: 'fcreate',
@@ -15,8 +28,7 @@ async function registermyCommands() {
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, characterId: string, factionName: string, Label: string) => {
             try {
-                const api = await rebar.useApi().getAsync('faction-handlers-api');
-                const result = await api.create(parseInt(characterId), {
+                const result = await create(parseInt(characterId), {
                     factionName: factionName,
                     label: Label,
                     bank: 10000,
@@ -36,8 +48,7 @@ async function registermyCommands() {
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string) => {
             try {
-                const api = await rebar.useApi().getAsync('faction-handlers-api');
-                const result = await api.remove(factionId);
+                const result = await remove(factionId);
                 console.log(result.response);
             } catch (err) {
                 messenger.message.send(player, { type: 'warning', content: 'Somthing went wrong!.' });
@@ -49,7 +60,7 @@ async function registermyCommands() {
         desc: '/fadd add new member to faction',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, charid: string) => {
-            const result: string = await apifunction.addMember(factionId, parseInt(charid));
+            const result: string = await addMember(factionId, parseInt(charid));
             messenger.message.send(player, { type: 'alert', content: result });
         },
     });
@@ -59,8 +70,7 @@ async function registermyCommands() {
         desc: '/fgetallf to get all faction in the server',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player) => {
-            const apifunction = await api.getAsync('faction-handlers-api');
-            const result = await apifunction.getAllFactions();
+            const result = getAllFactions();
             console.log(JSON.stringify(result));
         },
     });
@@ -70,7 +80,7 @@ async function registermyCommands() {
         desc: '/fchangerankname change the faction rank name ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, name: string) => {
-            const result = await apifunction.updateRankName(factionId, rankid, name);
+            const result = await updateRankName(factionId, rankid, name);
         },
     });
     messenger.commands.register({
@@ -78,7 +88,7 @@ async function registermyCommands() {
         desc: '/fsetowner to set faction owner ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, cid: string) => {
-            const result = await apifunction.setOwner(factionId, parseInt(cid));
+            const result = await setOwner(factionId, parseInt(cid));
         },
     });
     messenger.commands.register({
@@ -86,7 +96,7 @@ async function registermyCommands() {
         desc: '/ffindowner to find daction owner ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string) => {
-            const result = await apifunction.getFactionOwner(factionId);
+            const result = await getFactionOwner(factionId);
         },
     });
     messenger.commands.register({
@@ -94,7 +104,7 @@ async function registermyCommands() {
         desc: '/fgetmemberrank to get faction member rank ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, cid: string) => {
-            const result = await apifunction.getFactionMemberRank(factionId, parseInt(cid));
+            const result = await getFactionMemberRank(factionId, parseInt(cid));
             console.log(result);
         },
     });
@@ -112,7 +122,7 @@ async function registermyCommands() {
             maxOnDutyPay: string,
             MaxOffDutyPay: string,
         ) => {
-            const result = await apifunction.addRank(
+            const result = await addRank(
                 rankId,
                 newName,
                 parseInt(Weight),
@@ -130,7 +140,7 @@ async function registermyCommands() {
         desc: '/fupdaterankweight to update Rank weight ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, Weight: string) => {
-            const result = await apifunction.updateRankWeight(factionId, rankid, parseInt(Weight));
+            const result = await updateRankWeight(factionId, rankid, parseInt(Weight));
             console.log(result);
         },
     });
@@ -139,7 +149,7 @@ async function registermyCommands() {
         desc: '/fswaprank swap between ranks ',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, rankid: string, swaprankid: string) => {
-            const result = await apifunction.swapRanks(factionId, rankid, swaprankid);
+            const result = await swapRanks(factionId, rankid, swaprankid);
             console.log(result);
         },
     });
@@ -149,7 +159,7 @@ async function registermyCommands() {
         desc: '/fremovelocation remove a faction location based on location Type',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, locationType: keyof Locations, locationId: string) => {
-            const result = await apifunction.removeLocations(player, factionId, locationType, locationId);
+            const result = await removeLocations(player, factionId, locationType, locationId);
             console.log(result);
         },
     });
@@ -159,7 +169,7 @@ async function registermyCommands() {
         desc: '/fgetlocation get faction location based on location Type',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, locationType: string) => {
-            const result = await apifunction.getLocationsByType(factionId, locationType);
+            const result = await getLocationsByType(factionId, locationType);
             console.log(result);
         },
     });
@@ -172,7 +182,7 @@ async function registermyCommands() {
             if (!document.faction) {
                 return messenger.message.send(player, { type: 'warning', content: 'You are not in a faction!' });
             }
-            const result = await apifunction.getDuty(document.faction, document.id);
+            const result = await getDuty(document.faction, document.id);
             if (result) {
                 messenger.message.send(player, { type: 'alert', content: 'You are on duty!' });
             } else {
@@ -197,7 +207,7 @@ async function registermyCommands() {
             color?: string,
         ) => {
             const pos = new alt.Vector3(parseFloat(x), parseFloat(y), parseFloat(z) - 1);
-            const result = await apifunction.addLocations(
+            const result = await addLocations(
                 player,
                 factionId,
                 locationType,
@@ -216,7 +226,7 @@ async function registermyCommands() {
         desc: '/fkick to remove faction member',
         options: { permissions: ['admin'] },
         callback: async (player: alt.Player, factionId: string, charid: string) => {
-            await apifunction.kickMember(factionId, parseInt(charid));
+            await kickMember(factionId, parseInt(charid));
         },
     });
 }
