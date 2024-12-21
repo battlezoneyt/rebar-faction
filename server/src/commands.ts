@@ -2,7 +2,7 @@ import { useRebar } from '@Server/index.js';
 import alt from 'alt-server';
 import { Locations } from '@Plugins/rebar-faction/shared/interface.js';
 import { create, getAllFactions, remove } from '../controllers/faction.controller.js';
-import { addMember, getFactionOwner, kickMember, setOwner } from '../controllers/member.controller.js';
+import { addMember, getFactionOwner, kickMember, changeOwner } from '../controllers/member.controller.js';
 import {
     addRank,
     getFactionMemberRank,
@@ -82,7 +82,7 @@ messenger.commands.register({
     desc: '/fsetowner to set faction owner ',
     options: { permissions: ['admin'] },
     callback: async (player: alt.Player, factionId: string, cid: string) => {
-        const result = await setOwner(factionId, parseInt(cid));
+        const result = await changeOwner(factionId, parseInt(cid));
     },
 });
 messenger.commands.register({

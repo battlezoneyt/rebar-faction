@@ -9,7 +9,75 @@ const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
 const getter = Rebar.get.usePlayerGetter();
 
-export async function setOwner(factionId: string, characterIdentifier: number): Promise<boolean> {
+export interface FactionMemberAddEvent {
+    factionId: string;
+    characterId: number;
+    player: alt.Player;
+}
+
+export interface FactionMemberKickEvent {
+    factionId: string;
+    characterId: number;
+    player: alt.Player;
+}
+
+export interface FactionOwnerChangeEvent {
+    factionId: string;
+    oldOwnerId: number;
+    newOwnerId: number;
+}
+
+type MemberAddCallback = (event: FactionMemberAddEvent) => void;
+type MemberKickCallback = (event: FactionMemberKickEvent) => void;
+type OwnerChangeCallback = (event: FactionOwnerChangeEvent) => void;
+
+const memberAddHandlers = new Set<MemberAddCallback>();
+const memberKickHandlers = new Set<MemberKickCallback>();
+const ownerChangeHandlers = new Set<OwnerChangeCallback>();
+
+export function onMemberAdd(callback: MemberAddCallback): void {
+    memberAddHandlers.add(callback);
+}
+
+export function offMemberAdd(callback: MemberAddCallback): void {
+    memberAddHandlers.delete(callback);
+}
+
+export function onMemberKick(callback: MemberKickCallback): void {
+    memberKickHandlers.add(callback);
+}
+
+export function offMemberKick(callback: MemberKickCallback): void {
+    memberKickHandlers.delete(callback);
+}
+
+export function onOwnerChange(callback: OwnerChangeCallback): void {
+    ownerChangeHandlers.add(callback);
+}
+
+export function offOwnerChange(callback: OwnerChangeCallback): void {
+    ownerChangeHandlers.delete(callback);
+}
+
+function triggerMemberAdd(event: FactionMemberAddEvent): void {
+    memberAddHandlers.forEach((handler) => {
+        handler(event);
+    });
+}
+
+function triggerMemberKick(event: FactionMemberKickEvent): void {
+    memberKickHandlers.forEach((handler) => {
+        handler(event);
+    });
+}
+
+function triggerOwnerChange(event: FactionOwnerChangeEvent): void {
+    ownerChangeHandlers.forEach((handler) => {
+        handler(event);
+    });
+}
+
+export async function changeOwner(factionId: string, characterIdentifier: number): Promise<boolean> {
     const faction = findFactionById(factionId);
 
     if (!faction.members[characterIdentifier]) {
@@ -17,6 +85,8 @@ export async function setOwner(factionId: string, characterIdentifier: number): 
     }
 
     const owner = await getFactionOwner(factionId);
+    const oldOwnerId = owner.id;
+    const newOwnerId = characterIdentifier;
     const ownerRank = (await getRankWithHighestWeight(factionId)).gradeId;
 
     if (owner) {
@@ -30,6 +100,14 @@ export async function setOwner(factionId: string, characterIdentifier: number): 
     const didUpdate = await update(faction._id as string, 'members', {
         members: faction.members,
     });
+
+    if (didUpdate.status) {
+        triggerOwnerChange({
+            factionId,
+            oldOwnerId,
+            newOwnerId,
+        });
+    }
 
     return didUpdate.status;
 }
@@ -63,7 +141,8 @@ export async function addMember(factionId: string, characterId: number): Promise
         if (!faction) {
             throw new Error('Faction not found');
         }
-
+        const player = getter.byCharacter(characterId);
+        if (!player) return 'Character not found';
         const lowestRank = await getRankWithLowestWeight(factionId);
         const [character] = await db.getMany<Character>({ id: characterId }, 'Characters');
         if (!character || character.faction) {
@@ -86,10 +165,17 @@ export async function addMember(factionId: string, characterId: number): Promise
             await db.update({ _id: characterId, faction: faction._id.toString() }, 'Characters');
         }
 
-        await update(faction._id as string, 'members', {
+        const didUpdate = await update(faction._id as string, 'members', {
             members: faction.members,
         });
-        return `Updated Faction members successfully`;
+        if (didUpdate.status) {
+            triggerMemberAdd({
+                factionId,
+                characterId,
+                player,
+            });
+        }
+        return didUpdate.status;
     } catch (error) {
         console.error(`Failed to add member: ${error.message}`);
         return `Failed to add member: ${error.message}`;
@@ -105,6 +191,7 @@ export async function kickMember(factionId: string, characterId: number): Promis
     if (!faction) {
         return false;
     }
+    const player = getter.byCharacter(characterId);
 
     const result = await db.getMany<Character>({ id: characterId }, 'Characters');
     const character = result[0];
@@ -123,5 +210,12 @@ export async function kickMember(factionId: string, characterId: number): Promis
         members: faction.members,
     });
 
+    if (didUpdate.status && player) {
+        triggerMemberKick({
+            factionId,
+            characterId,
+            player,
+        });
+    }
     return didUpdate.status;
 }

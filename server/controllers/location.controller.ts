@@ -131,6 +131,11 @@ export async function getLocationsByType(factionId: string, locationType: keyof 
     return faction.locations[locationType];
 }
 
+export async function getFactionLocations(factionId: string): Promise<Locations> {
+    const faction = findFactionById(factionId);
+    return faction.locations;
+}
+
 export function onLocationChange(callback: LocationChangeCallback): void {
     locationChangeHandlers.add(callback);
 }

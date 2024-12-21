@@ -4,12 +4,14 @@ import { Character } from '@Shared/types/character.js';
 import { BlipColor } from '@Shared/types/blip.js';
 import { findFactionById, update } from './faction.controller.js';
 import { useBlipGlobal } from './blip.controller.js';
+import { addLocationInteractionCallback } from './blip.manager.js';
 
 const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
 const getter = Rebar.get.usePlayerGetter();
 
 const factionBlips = new Map<string, Map<alt.Player, any>>(); // Map of factions to on-duty players and their blips
+const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
 
 export interface DutyChangeEvent {
     player: alt.Player;
@@ -210,4 +212,13 @@ alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Charac
     if (document.faction) {
         updateFaction(player, document.faction);
     }
+});
+
+addLocationInteractionCallback('dutyLocations', async (player) => {
+    if (!player || !player.valid) return;
+    const character = Rebar.document.character.useCharacter(player);
+    if (!character || !character.get().faction) return;
+    const duty = await getDuty(character.get().faction, character.get().id);
+    if (!duty) return;
+    await setDuty(character.get().faction, character.get().id, true);
 });
