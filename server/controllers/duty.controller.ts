@@ -5,6 +5,7 @@ import { BlipColor } from '@Shared/types/blip.js';
 import { findFactionById, update } from './faction.controller.js';
 import { useBlipGlobal } from './blip.controller.js';
 import { onMemberAdd, onMemberKick } from './member.controller.js';
+import { registerFactionLocationCallback } from './locationManager.js';
 
 const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
@@ -84,7 +85,7 @@ export async function setDuty(factionId: string, characterId: number, value?: bo
     return didUpdate.status;
 }
 export async function addPlayerToFactionBlips(player: alt.Player, characterId: number, factionId: string) {
-    if (!player || !player.valid) {
+    if (!player?.valid) {
         // console.error('Invalid player object in addPlayerToFactionBlips.');
         return;
     }
@@ -150,7 +151,7 @@ export async function addPlayerToFactionBlips(player: alt.Player, characterId: n
 }
 
 export async function removePlayerFromFactionBlips(player: alt.Player, characterId: number, factionId: string) {
-    if (!player || !player.valid) {
+    if (!player?.valid) {
         // console.error('Invalid player object in removePlayerFromFactionBlips.');
         return;
     }
@@ -223,4 +224,10 @@ alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Charac
     }
 });
 
-//
+registerFactionLocationCallback('dutyLocations', async (player: alt.Player) => {
+    if (!player?.valid) return;
+    const character = Rebar.document.character.useCharacter(player);
+    if (!character?.get()?.faction) return;
+    const duty = await getDuty(character?.get()?.faction, character.get().id);
+    await setDuty(character?.get()?.faction, character?.get()?.id, !duty);
+});

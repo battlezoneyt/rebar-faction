@@ -12,8 +12,10 @@ import { BlipColor } from '@Shared/types/blip.js';
 import { MarkerType } from '@Shared/types/marker.js';
 import { Character } from '@Shared/types/index.js';
 import { Locations } from '../../shared/interface.js';
+import { BLIP_SETTINGS } from '../../shared/config.js';
 import { findFactionById, getAllFactions } from './faction.controller.js';
 import { FactionMemberAddEvent, FactionMemberKickEvent, onMemberAdd, onMemberKick } from './member.controller.js';
+import { handleLocationInteraction } from './locationManager.js';
 
 const Rebar = useRebar();
 const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
@@ -148,7 +150,6 @@ function removeLocationBlips(player: alt.Player, locationId: string) {
         if (locationBlips.blip && locationBlips.blip.destroy) locationBlips.blip.destroy();
         if (locationBlips.marker && locationBlips.marker.destroy) locationBlips.marker.destroy();
         if (locationBlips.interaction && locationBlips.interaction.destroy) locationBlips.interaction.destroy();
-        NotificationAPI.textLabel.remove(player);
 
         playerBlipMap.delete(locationId);
     }
@@ -156,7 +157,7 @@ function removeLocationBlips(player: alt.Player, locationId: string) {
 
 function addLocationBlips(player: alt.Player, location: any, locationType: keyof Locations) {
     try {
-        if (!player || !player.valid) return;
+        if (!player?.valid) return;
 
         if (!playerLocationBlips.has(player)) {
             playerLocationBlips.set(player, new Map());
@@ -211,13 +212,7 @@ function addLocationBlips(player: alt.Player, location: any, locationType: keyof
             ]);
 
             interaction.on(async (player: alt.Player) => {
-                if (locationType === 'dutyLocations') {
-                    if (!player || !player.valid) return;
-                    const character = Rebar.document.character.useCharacter(player);
-                    if (!character || !character.get().faction) return;
-                    const duty = await getDuty(character.get().faction, character.get().id);
-                    await setDuty(character.get().faction, character.get().id, !duty);
-                }
+                await handleLocationInteraction(player, locationType);
             });
             interaction.onEnter((player: alt.Player) => {
                 NotificationAPI.textLabel.create(player, {
@@ -228,13 +223,6 @@ function addLocationBlips(player: alt.Player, location: any, locationType: keyof
 
             interaction.onLeave((player: alt.Player) => {
                 NotificationAPI.textLabel.remove(player);
-            });
-
-            const playerBlipMap = playerLocationBlips.get(player)!;
-            playerBlipMap.set(location.locationId, {
-                blip: locationBlip,
-                marker: locationMarker,
-                interaction: interaction,
             });
         } catch (error) {
             console.error(`Failed to create interaction for ${location.locationName}:`, error);
@@ -253,59 +241,7 @@ function addLocationBlips(player: alt.Player, location: any, locationType: keyof
 
 // Helper function to get blip settings based on location type
 function getBlipSettingsForLocationType(locationType: keyof Locations) {
-    const settings = {
-        dutyLocations: {
-            color: BlipColor.BLUE,
-            sprite: 1,
-            markerColor: new alt.RGBA(0, 50, 200, 255),
-            markerType: MarkerType.CHEVRON_UP_SINGLE,
-            interactionPrefix: 'Duty Point:',
-        },
-        jobLocations: {
-            color: BlipColor.GREEN,
-            sprite: 175,
-            markerColor: new alt.RGBA(0, 200, 0, 255),
-            markerType: MarkerType.CHEVRON_UP_SINGLE,
-            interactionPrefix: 'Armor:',
-        },
-        bossMenuLoc: {
-            color: BlipColor.RED,
-            sprite: 110,
-            markerColor: new alt.RGBA(200, 0, 0, 255),
-            markerType: MarkerType.CHEVRON_UP_SINGLE,
-            interactionPrefix: 'Weapons:',
-        },
-        factionShopLoc: {
-            color: BlipColor.YELLOW,
-            sprite: 50,
-            markerColor: new alt.RGBA(200, 200, 0, 255),
-            markerType: MarkerType.CAR,
-            interactionPrefix: 'Garage:',
-        },
-        storageLocations: {
-            color: BlipColor.ORANGE,
-            sprite: 68,
-            markerColor: new alt.RGBA(200, 100, 0, 255),
-            markerType: MarkerType.CAR,
-            interactionPrefix: 'Impound:',
-        },
-        vehicleShopLoc: {
-            color: BlipColor.ORANGE,
-            sprite: 68,
-            markerColor: new alt.RGBA(200, 100, 0, 255),
-            markerType: MarkerType.CAR,
-            interactionPrefix: 'Impound:',
-        },
-        clothingLoc: {
-            color: BlipColor.ORANGE,
-            sprite: 68,
-            markerColor: new alt.RGBA(200, 100, 0, 255),
-            markerType: MarkerType.CAR,
-            interactionPrefix: 'Impound:',
-        },
-    };
-
-    return settings[locationType] || settings.dutyLocations;
+    return BLIP_SETTINGS[locationType] || BLIP_SETTINGS.dutyLocations;
 }
 
 function cleanupAllBlips() {
@@ -318,21 +254,14 @@ function cleanupAllBlips() {
 
 function cleanupPlayerLocationBlips(player: alt.Player) {
     const playerBlipMap = playerLocationBlips.get(player);
-    if (playerBlipMap) {
-        // Cleanup all blips, markers, and interactions
-        playerBlipMap.forEach(({ blip, marker, interaction }) => {
-            if (blip?.destroy) blip.destroy();
-            if (marker?.destroy) marker.destroy();
-            if (interaction?.destroy) interaction.destroy();
-        });
+    if (!playerBlipMap) return;
 
-        // Remove text label if exists
-        NotificationAPI.textLabel.remove(player);
-
-        // Clear the map and delete player entry
-        playerBlipMap.clear();
-        playerLocationBlips.delete(player);
+    for (const { blip, marker, interaction } of playerBlipMap.values()) {
+        [blip, marker, interaction].forEach((item) => item?.destroy?.());
     }
+
+    playerBlipMap.clear();
+    playerLocationBlips.delete(player);
 }
 
 function cleanupGlobalJobBlips() {
@@ -380,7 +309,7 @@ export async function updateLocationBlipsForPlayer(
         if (!Array.isArray(locationList)) continue;
 
         for (const location of locationList) {
-            if (isOnDuty) {
+            if (isOnDuty || locationType === 'dutyLocations') {
                 // Other locations only visible when on duty
                 addLocationBlips(player, location, locationType);
             } else {
@@ -430,8 +359,9 @@ async function handleFactionMemberAdd(event: FactionMemberAddEvent) {
 
     // Initialize new blips for the player with their new faction
     const character = Rebar.document.character.useCharacter(player);
-    if (character && character.get().faction) {
-        const isOnDuty = await getDuty(factionId, character.get().id);
+    if (!character?.get()?.faction) return;
+    const isOnDuty = await getDuty(factionId, character.get().id);
+    if (isOnDuty !== undefined) {
         await updateLocationBlipsForPlayer(player, factionId, isOnDuty || false);
     }
 }

@@ -37,6 +37,7 @@ import {
     removePlayerFromFactionBlips,
     setDuty,
 } from './controllers/duty.controller.js';
+import { registerFactionLocationCallback } from './controllers/locationManager.js';
 
 const API_NAME = 'rebar-faction-api';
 
@@ -90,6 +91,10 @@ function useFactionAPI() {
 
     const blipsHandlers = {
         useBlipGlobalLocal: useBlipGlobal,
+    };
+
+    const locationCallback = {
+        onCallback: registerFactionLocationCallback,
     };
 
     return {
