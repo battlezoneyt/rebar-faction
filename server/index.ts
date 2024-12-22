@@ -14,3 +14,5 @@ import { initializeAllGlobalJobBlips } from './controllers/blip.manager.js';
 await init();
 await initializeAllGlobalJobBlips();
 // await updateJobBlips();
+
+alt.log('Rebar Faction Plugin Loaded');

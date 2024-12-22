@@ -1,5 +1,5 @@
 import { useApi } from '@Server/api/index.js';
-import { addMember, getFactionOwner, kickMember, setOwner } from './controllers/member.controller.js';
+import { addMember, getFactionOwner, kickMember, changeOwner } from './controllers/member.controller.js';
 import {
     addRank,
     getFactionMemberRank,
@@ -24,7 +24,12 @@ import {
     subBank,
     update,
 } from './controllers/faction.controller.js';
-import { addLocations, getLocationsByType, removeLocations } from './controllers/location.controller.js';
+import {
+    addLocations,
+    getFactionLocations,
+    getLocationsByType,
+    removeLocations,
+} from './controllers/location.controller.js';
 import { useBlipGlobal } from './controllers/blip.controller.js';
 import {
     addPlayerToFactionBlips,
@@ -66,6 +71,7 @@ function useFactionAPI() {
         addLocations: addLocations,
         removeLocations: removeLocations,
         getLocationsByType: getLocationsByType,
+        getAllLocations: getFactionLocations,
     };
 
     const dutyHandlers = {
@@ -76,7 +82,7 @@ function useFactionAPI() {
     };
 
     const memberHandlers = {
-        setFactionOwner: setOwner,
+        setFactionOwner: changeOwner,
         getFactionOwner: getFactionOwner,
         addFactionMember: addMember,
         removeFactionMember: kickMember,
