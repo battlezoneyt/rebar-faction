@@ -11,7 +11,7 @@ import {
     updateRankWeight,
 } from '../controllers/grade.controller.js';
 import { addLocations, getLocationsByType, removeLocations } from '../controllers/location.controller.js';
-import { getDuty } from '../controllers/duty.controller.js';
+import { getDuty, setDuty } from '../controllers/duty.controller.js';
 
 const rebar = useRebar();
 const messenger = rebar.messenger.useMessenger();
@@ -184,6 +184,26 @@ messenger.commands.register({
         }
     },
 });
+
+messenger.commands.register({
+    name: 'duty',
+    desc: '/duty to set player duty ON/OFF',
+    callback: async (player: alt.Player) => {
+        const character = rebar.document.character.useCharacter(player);
+        const document = character.get();
+        if (!document.faction) {
+            return messenger.message.send(player, { type: 'warning', content: 'You are not in a faction!' });
+        }
+        const duty = await getDuty(document.faction, document.id);
+        const result = await setDuty(document.faction, document.id, !duty);
+        if (result) {
+            messenger.message.send(player, { type: 'alert', content: 'You are on duty!' });
+        } else {
+            messenger.message.send(player, { type: 'alert', content: 'You are not on duty!' });
+        }
+    },
+});
+
 messenger.commands.register({
     name: 'faddlocation',
     desc: '/faddlocation add new location for faction ',

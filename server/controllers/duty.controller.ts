@@ -4,14 +4,13 @@ import { Character } from '@Shared/types/character.js';
 import { BlipColor } from '@Shared/types/blip.js';
 import { findFactionById, update } from './faction.controller.js';
 import { useBlipGlobal } from './blip.controller.js';
-import { addLocationInteractionCallback } from './blip.manager.js';
+import { onMemberAdd, onMemberKick } from './member.controller.js';
 
 const Rebar = useRebar();
 const db = Rebar.database.useDatabase();
 const getter = Rebar.get.usePlayerGetter();
 
 const factionBlips = new Map<string, Map<alt.Player, any>>(); // Map of factions to on-duty players and their blips
-const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
 
 export interface DutyChangeEvent {
     player: alt.Player;
@@ -22,24 +21,33 @@ export interface DutyChangeEvent {
 
 type DutyChangeCallback = (event: DutyChangeEvent) => void;
 const dutyChangeHandlers = new Set<DutyChangeCallback>();
+const offDutyChangeHandlers = new Set<DutyChangeCallback>(); // New set for off-duty handlers
 
 export function onDutyChange(callback: DutyChangeCallback): void {
     dutyChangeHandlers.add(callback);
 }
 
 export function offDutyChange(callback: DutyChangeCallback): void {
-    dutyChangeHandlers.delete(callback);
+    offDutyChangeHandlers.add(callback);
 }
 
 function triggerDutyChange(event: DutyChangeEvent): void {
+    // Always trigger onDutyChange handlers
     dutyChangeHandlers.forEach((handler) => {
         handler(event);
     });
+
+    // If player is going off duty, also trigger offDutyChange handlers
+    if (!event.isOnDuty) {
+        offDutyChangeHandlers.forEach((handler) => {
+            handler(event);
+        });
+    }
 }
 
 export async function getDuty(factionId: string, characterId: number): Promise<boolean> {
     const faction = findFactionById(factionId);
-
+    if (faction.members[characterId] === undefined || !faction.members[characterId]) return false;
     return faction.members[characterId].duty;
 }
 
@@ -92,7 +100,6 @@ export async function addPlayerToFactionBlips(player: alt.Player, characterId: n
     const dutyStatus = await getDuty(factionId, characterId);
 
     if (!dutyStatus) {
-        console.warn(`Player ${player.name} is off duty.`);
         await removePlayerFromFactionBlips(player, characterId, factionId);
         return;
     }
@@ -189,7 +196,7 @@ export async function removePlayerFromFactionBlips(player: alt.Player, character
     // console.log(`Blip for ${player.name} removed and detached from all players.`);
 }
 
-function handleFactionBlips({ player, characterId, factionId, isOnDuty }: DutyChangeEvent) {
+function handleFactionBlips({ player, characterId, factionId, isOnDuty = true }: DutyChangeEvent) {
     if (isOnDuty) {
         addPlayerToFactionBlips(player, characterId, factionId);
     } else {
@@ -207,6 +214,8 @@ function updateFaction(player: alt.Player, factionId: string) {
 
 // Register the blip handler
 onDutyChange(handleFactionBlips);
+onMemberAdd(handleFactionBlips);
+onMemberKick(handleFactionBlips);
 
 alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Character) => {
     if (document.faction) {
@@ -214,11 +223,4 @@ alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Charac
     }
 });
 
-addLocationInteractionCallback('dutyLocations', async (player) => {
-    if (!player || !player.valid) return;
-    const character = Rebar.document.character.useCharacter(player);
-    if (!character || !character.get().faction) return;
-    const duty = await getDuty(character.get().faction, character.get().id);
-    if (!duty) return;
-    await setDuty(character.get().faction, character.get().id, true);
-});
+//

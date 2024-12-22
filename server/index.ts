@@ -8,10 +8,11 @@ import './controllers/duty.controller.js';
 import './src/commands.js';
 import './controllers/blip.manager.js';
 import { init } from './controllers/faction.controller.js';
-import { initializeAllGlobalJobBlips, initializeFactionBlipHandlers } from './controllers/blip.manager.js';
+import { initializeAllGlobalJobBlips } from './controllers/blip.manager.js';
 // import { updateJobBlips } from './src/updateMembers.js';
 
 await init();
 await initializeAllGlobalJobBlips();
-initializeFactionBlipHandlers();
 // await updateJobBlips();
+
+alt.log('Rebar Faction Plugin Loaded');
