@@ -104,6 +104,7 @@ function useFactionAPI() {
         dutyHandlers,
         memberHandlers,
         blipsHandlers,
+        locationCallback,
     };
 }
 
