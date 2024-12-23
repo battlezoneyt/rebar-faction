@@ -15,8 +15,7 @@ const { useCurrency } = await api.getAsync('currency-api');
 const FACTION_COLLECTION = 'Factions';
 
 const factions: { [key: string]: Factions } = {};
-type FactionChangeCallback = (updateInfo: { factionId: string; fieldName: string }) => void;
-const callbacks: FactionChangeCallback[] = [];
+
 class InternalFunctions {
     static update(faction: Factions) {
         factions[faction._id as string] = faction;
@@ -151,7 +150,6 @@ export async function update(_id: string, fieldName: string, partialObject: Part
 
     try {
         await db.update({ _id, [fieldName]: partialObject[fieldName] }, FACTION_COLLECTION);
-        callbacks.forEach((cb) => cb({ factionId: _id, fieldName }));
         return { status: true, response: `Updated Faction Data` };
     } catch (err) {
         console.error(err);
@@ -206,8 +204,4 @@ export async function subBank(factionId: string, amount: number): Promise<boolea
     const didUpdate = await update(faction._id as string, 'bank', { bank: faction.bank });
 
     return didUpdate.status;
-}
-
-export function onUpdate(callback: FactionChangeCallback) {
-    callbacks.push(callback);
 }
