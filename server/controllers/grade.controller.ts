@@ -5,6 +5,18 @@ import { findFactionById, update } from './faction.controller.js';
 
 const Rebar = useRebar();
 
+type RankChangeCallback = (characterId: number, factionId: string, oldRank: string, newRank: string) => void;
+
+const rankChangeCallbacks: Set<RankChangeCallback> = new Set();
+
+export function onRankChange(callback: RankChangeCallback): void {
+    rankChangeCallbacks.add(callback);
+}
+
+export function offRankChange(callback: RankChangeCallback): void {
+    rankChangeCallbacks.delete(callback);
+}
+
 /**
  * Returns the next highest rank from the 'owner' rank.
  *
@@ -69,7 +81,7 @@ export async function isRankAbove(factionId: string, _rank: string, _vsRank: str
     const faction = findFactionById(factionId);
     const rank = faction.grades.find((r) => r.gradeId === _rank);
     const vsRank = faction.grades.find((r) => r.gradeId === _vsRank);
-    return rank.permissionLevel > vsRank.permissionLevel ? true : false;
+    return rank.permissionLevel >= vsRank.permissionLevel ? true : false;
 }
 
 /**
@@ -80,7 +92,7 @@ export async function isRankBelow(factionId: string, _rank: string, _vsRank: str
     const faction = findFactionById(factionId);
     const rank = faction.grades.find((r) => r.gradeId === _rank);
     const vsRank = faction.grades.find((r) => r.gradeId === _vsRank);
-    return rank.permissionLevel < vsRank.permissionLevel ? true : false;
+    return rank.permissionLevel <= vsRank.permissionLevel ? true : false;
 }
 
 /**
@@ -89,6 +101,8 @@ export async function isRankBelow(factionId: string, _rank: string, _vsRank: str
  */
 export async function setCharacterRank(factionId: string, characterId: number, newRank: string): Promise<boolean> {
     const faction = findFactionById(factionId);
+    if (faction.members[characterId] === undefined) return false;
+    const oldRank = faction.members[characterId].gradeId;
     const rankIndex = faction.grades.findIndex((x) => x.gradeId === newRank);
     if (rankIndex <= -1) {
         return false;
@@ -103,6 +117,16 @@ export async function setCharacterRank(factionId: string, characterId: number, n
     const didUpdate = await update(faction._id as string, 'members', {
         members: faction.members,
     });
+
+    if (didUpdate) {
+        rankChangeCallbacks.forEach((callback) => {
+            try {
+                callback(characterId, factionId, oldRank, newRank);
+            } catch (error) {
+                console.error('Error in rank change callback:', error);
+            }
+        });
+    }
     return didUpdate.status;
 }
 
@@ -204,7 +228,7 @@ export async function addRank(
 ): Promise<boolean> {
     const faction = findFactionById(factionId);
     const rankIndex = faction.grades.findIndex((r) => r.permissionLevel === weight);
-    if (rankIndex >= 0 || maxOnDutyPay > onDutyPay || maxOffDutyPay > offDutyPay) {
+    if (rankIndex >= 0 || onDutyPay > maxOnDutyPay || offDutyPay > maxOffDutyPay) {
         return false;
     }
 

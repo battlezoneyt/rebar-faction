@@ -1,6 +1,6 @@
 import * as alt from 'alt-server';
 import { useRebar } from '@Server/index.js';
-import { UserFaction } from '../../shared/interface.js';
+import { Grades, UserFaction } from '../../shared/interface.js';
 import { Character } from '@Shared/types/character.js';
 import { findFactionById, update } from './faction.controller.js';
 import { getFactionRankBelowHighest, getRankWithHighestWeight, getRankWithLowestWeight } from './grade.controller.js';
@@ -218,4 +218,34 @@ export async function kickMember(factionId: string, characterId: number): Promis
         });
     }
     return didUpdate.status;
+}
+
+export async function getMemberCount(factionId: string): Promise<number> {
+    const faction = findFactionById(factionId);
+    if (!faction) return 0;
+    return Object.keys(faction.members).length;
+}
+
+export async function getMembers(factionId: string): Promise<UserFaction[]> {
+    const faction = findFactionById(factionId);
+    if (!faction) return [];
+    return Object.values(faction.members);
+}
+
+export async function getMember(factionId: string, characterId: number): Promise<UserFaction> {
+    const faction = findFactionById(factionId);
+    if (!faction) return null;
+    return faction.members[characterId];
+}
+
+export async function getMemberName(factionId: string, characterId: number): Promise<string> {
+    const faction = findFactionById(factionId);
+    if (!faction) return null;
+    return faction.members[characterId].name;
+}
+
+export async function getMemberGrade(factionId: string, characterId: number): Promise<string> {
+    const faction = findFactionById(factionId);
+    if (!faction) return null;
+    return faction.members[characterId].gradeId;
 }

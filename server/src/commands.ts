@@ -6,6 +6,7 @@ import { addMember, getFactionOwner, kickMember, changeOwner } from '../controll
 import {
     addRank,
     getFactionMemberRank,
+    setCharacterRank,
     swapRanks,
     updateRankName,
     updateRankWeight,
@@ -108,7 +109,7 @@ messenger.commands.register({
     options: { permissions: ['admin'] },
     callback: async (
         player: alt.Player,
-        rankId: string,
+        factionId: string,
         newName: string,
         Weight: string,
         onDutyPay: string,
@@ -117,7 +118,7 @@ messenger.commands.register({
         MaxOffDutyPay: string,
     ) => {
         const result = await addRank(
-            rankId,
+            factionId,
             newName,
             parseInt(Weight),
             parseInt(onDutyPay),
@@ -144,6 +145,16 @@ messenger.commands.register({
     options: { permissions: ['admin'] },
     callback: async (player: alt.Player, factionId: string, rankid: string, swaprankid: string) => {
         const result = await swapRanks(factionId, rankid, swaprankid);
+        console.log(result);
+    },
+});
+
+messenger.commands.register({
+    name: 'fchangerank',
+    desc: '/fchangerank set rank for a user ',
+    options: { permissions: ['admin'] },
+    callback: async (player: alt.Player, factionId: string, characterId: string, newRank: string) => {
+        const result = await setCharacterRank(factionId, parseInt(characterId), newRank);
         console.log(result);
     },
 });

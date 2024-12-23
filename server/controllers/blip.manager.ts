@@ -7,17 +7,26 @@ import {
     getLocationsByType,
     getFactionLocations,
 } from './location.controller.js';
-import { getDuty, onDutyChange, setDuty } from './duty.controller.js';
+import { getDuty, onDutyChange } from './duty.controller.js';
 import { BlipColor } from '@Shared/types/blip.js';
 import { MarkerType } from '@Shared/types/marker.js';
 import { Character } from '@Shared/types/index.js';
 import { Locations } from '../../shared/interface.js';
 import { BLIP_SETTINGS } from '../../shared/config.js';
-import { findFactionById, getAllFactions } from './faction.controller.js';
-import { FactionMemberAddEvent, FactionMemberKickEvent, onMemberAdd, onMemberKick } from './member.controller.js';
+import { getAllFactions } from './faction.controller.js';
+import {
+    FactionMemberAddEvent,
+    FactionMemberKickEvent,
+    getMemberGrade,
+    onMemberAdd,
+    onMemberKick,
+} from './member.controller.js';
 import { handleLocationInteraction } from './locationManager.js';
+import { isRankAbove, onRankChange } from './grade.controller.js';
 
 const Rebar = useRebar();
+const getter = Rebar.get.usePlayerGetter();
+
 const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
 
 // Store all types of location blips for each player
@@ -34,17 +43,6 @@ const playerLocationBlips = new Map<
 >();
 
 const globalJobBlips = new Map<string, any>();
-
-// Define which location types to show when on duty
-const LocationTypes: (keyof Locations)[] = [
-    'jobLocations',
-    'dutyLocations',
-    'bossMenuLoc',
-    'factionShopLoc',
-    'storageLocations',
-    'vehicleShopLoc',
-    'clothingLoc',
-];
 
 export async function initializeAllGlobalJobBlips() {
     const factions = getAllFactions();
@@ -129,11 +127,11 @@ async function handleLocationBlips({ player, factionId, locationType, location, 
                 const char = character.get();
                 if (!char || char.faction !== factionId) return null;
                 if (locationType === 'dutyLocations') {
-                    addLocationBlips(player, location, locationType);
+                    addLocationBlips(player, factionId, char.id, location, locationType);
                 } else {
                     const isOnDuty = await getDuty(char.faction, char.id);
                     if (isOnDuty) {
-                        addLocationBlips(player, location, locationType);
+                        addLocationBlips(player, factionId, char.id, location, locationType);
                     }
                 }
             }
@@ -155,10 +153,20 @@ function removeLocationBlips(player: alt.Player, locationId: string) {
     }
 }
 
-function addLocationBlips(player: alt.Player, location: any, locationType: keyof Locations) {
+async function addLocationBlips(
+    player: alt.Player,
+    factionId: string,
+    characterId: number,
+    location: any,
+    locationType: keyof Locations,
+) {
     try {
         if (!player?.valid) return;
-
+        const memberRankId = await getMemberGrade(factionId, characterId);
+        const hasPermission = await isRankAbove(factionId, memberRankId, location.gradeId);
+        if (!hasPermission) {
+            return; // Skip creating blips if permission check fails
+        }
         if (!playerLocationBlips.has(player)) {
             playerLocationBlips.set(player, new Map());
         }
@@ -300,7 +308,8 @@ export async function updateLocationBlipsForPlayer(
     // Get all faction locations
     const locations = await getFactionLocations(factionId);
     if (!locations) return;
-
+    const character = Rebar.document.character.useCharacter(player);
+    if (!character) return;
     // Initialize blips based on duty status
     for (const locationType of Object.keys(locations) as Array<keyof Locations>) {
         if (skipDutyLocations && locationType === 'dutyLocations') continue;
@@ -311,7 +320,7 @@ export async function updateLocationBlipsForPlayer(
         for (const location of locationList) {
             if (isOnDuty || locationType === 'dutyLocations') {
                 // Other locations only visible when on duty
-                addLocationBlips(player, location, locationType);
+                addLocationBlips(player, factionId, character?.get().id, location, locationType);
             } else {
                 // Clean up duty locations when off duty
                 removeLocationBlips(player, location.locationId);
@@ -374,3 +383,12 @@ async function handleFactionMemberKick(event: FactionMemberKickEvent) {
 
 onMemberAdd(handleFactionMemberAdd);
 onMemberKick(handleFactionMemberKick);
+onRankChange(async (characterId, factionId, oldRank, newRank) => {
+    if (!characterId || !factionId) return;
+    const player = Rebar.get.usePlayerGetter().byCharacter(characterId);
+    if (!player) return;
+    const isOnDuty = await getDuty(factionId, characterId);
+    if (isOnDuty !== undefined) {
+        await updateLocationBlipsForPlayer(player, factionId, isOnDuty || false, true);
+    }
+});
