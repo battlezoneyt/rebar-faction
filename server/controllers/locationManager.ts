@@ -1,25 +1,31 @@
+import { Locations } from '../../shared/interface.js';
 import * as alt from 'alt-server';
 
-// Type definition
-type LocationCallback = (player: alt.Player) => Promise<void> | void;
+// Update the type definition to include locationId
+type LocationCallback = (player: alt.Player, factionId: string, locationId: string) => Promise<void> | void;
 
 // Store callbacks in a map that's accessible throughout the module
 const locationCallbacks: Map<string, LocationCallback> = new Map();
 
-// Register callback function
-export function registerFactionLocationCallback(locationType: string, callback: LocationCallback) {
+// Register callback function remains the same
+export function registerFactionLocationCallback(locationType: keyof Locations, callback: LocationCallback) {
     locationCallbacks.set(locationType, callback);
 }
 
-// Handle interaction function
-export async function handleLocationInteraction(player: alt.Player, locationType: string) {
+// Update handle interaction function to pass locationId
+export async function handleLocationInteraction(
+    player: alt.Player,
+    factionId: string,
+    locationType: keyof Locations,
+    locationId: string,
+) {
     const callback = locationCallbacks.get(locationType);
     if (callback) {
-        await callback(player);
+        await callback(player, factionId, locationId);
     }
 }
 
-// Optional utility functions
+// Optional utility functions remain the same
 export function removeLocationCallback(locationType: string) {
     locationCallbacks.delete(locationType);
 }

@@ -11,7 +11,7 @@ import { getDuty, onDutyChange } from './duty.controller.js';
 import { BlipColor } from '@Shared/types/blip.js';
 import { MarkerType } from '@Shared/types/marker.js';
 import { Character } from '@Shared/types/index.js';
-import { Locations } from '../../shared/interface.js';
+import { JobLocal, Locations } from '../../shared/interface.js';
 import { BLIP_SETTINGS } from '../../shared/config.js';
 import { getAllFactions } from './faction.controller.js';
 import {
@@ -28,19 +28,19 @@ const Rebar = useRebar();
 const getter = Rebar.get.usePlayerGetter();
 
 const NotificationAPI = await Rebar.useApi().getAsync('ascended-notification-api');
+const GarageApi = await Rebar.useApi().getAsync('rebar-Garage-api');
 
+type LocationBlipData = {
+    blip: any;
+    marker: any;
+    interaction: any;
+    storePoints?: Array<{
+        marker: any;
+        interaction: any;
+    }>;
+};
 // Store all types of location blips for each player
-const playerLocationBlips = new Map<
-    alt.Player,
-    Map<
-        string,
-        {
-            blip: any;
-            marker: any;
-            interaction: any;
-        }
-    >
->();
+const playerLocationBlips = new Map<alt.Player, Map<string, LocationBlipData>>();
 
 const globalJobBlips = new Map<string, any>();
 
@@ -144,21 +144,30 @@ function removeLocationBlips(player: alt.Player, locationId: string) {
     if (!playerBlipMap) return;
 
     const locationBlips = playerBlipMap.get(locationId);
-    if (locationBlips) {
-        if (locationBlips.blip && locationBlips.blip.destroy) locationBlips.blip.destroy();
-        if (locationBlips.marker && locationBlips.marker.destroy) locationBlips.marker.destroy();
-        if (locationBlips.interaction && locationBlips.interaction.destroy) locationBlips.interaction.destroy();
+    if (!locationBlips) return;
 
-        playerBlipMap.delete(locationId);
+    if (locationBlips.storePoints) {
+        locationBlips.storePoints.forEach(({ marker, interaction }) => {
+            if (marker && marker.destroy) marker.destroy();
+            if (interaction && interaction.destroy) interaction.destroy();
+        });
+        delete locationBlips.storePoints;
     }
+
+    if (locationBlips.blip && locationBlips.blip.destroy) locationBlips.blip.destroy();
+    if (locationBlips.marker && locationBlips.marker.destroy) locationBlips.marker.destroy();
+    if (locationBlips.interaction && locationBlips.interaction.destroy) locationBlips.interaction.destroy();
+
+    playerBlipMap.delete(locationId);
 }
 
 async function addLocationBlips(
     player: alt.Player,
     factionId: string,
     characterId: number,
-    location: any,
+    location: JobLocal,
     locationType: keyof Locations,
+    isStoreLoc: boolean = false,
 ) {
     try {
         if (!player?.valid) return;
@@ -174,74 +183,98 @@ async function addLocationBlips(
         const playerBlipMap = playerLocationBlips.get(player)!;
 
         // Remove existing blips for this location if they exist
-        if (playerBlipMap.has(location.locationId)) {
+        if (!isStoreLoc && playerBlipMap.has(location.locationId)) {
             removeLocationBlips(player, location.locationId);
         }
 
         // Get blip settings based on location type
         const blipSettings = getBlipSettingsForLocationType(locationType);
 
-        // Create blip with error handling
-        let locationBlip;
-        try {
-            locationBlip = Rebar.controllers.useBlipLocal(player, {
+        if (isStoreLoc && Array.isArray(location.storeSpots)) {
+            const storeBlips = [];
+            for (const storeLocation of location.storeSpots) {
+                try {
+                    const storeMarker = Rebar.controllers.useMarkerLocal(player, {
+                        pos: new alt.Vector3(storeLocation.x, storeLocation.y, storeLocation.z + 1),
+                        color: new alt.RGBA(255, 0, 0, 255),
+                        scale: new alt.Vector3(1, 1, 1),
+                        type: MarkerType.CHEVRON_UP_SINGLE,
+                    });
+
+                    const storeInteraction = Rebar.controllers.useInteractionLocal(player, 'Store Point', 'Cylinder', [
+                        storeLocation.x,
+                        storeLocation.y,
+                        storeLocation.z - 1,
+                        3,
+                        3,
+                    ]);
+
+                    storeInteraction.on(async (player: alt.Player) => {
+                        GarageApi.GarageHandlers.handleFactionStoreIntraction(
+                            player,
+                            location.locationId,
+                            location.locationName,
+                            location.vehicleType,
+                        );
+                    });
+
+                    storeBlips.push({ marker: storeMarker, interaction: storeInteraction });
+                } catch (error) {
+                    console.error(`Failed to add store point at ${storeLocation}:`, error);
+                }
+            }
+
+            const playerBlipMap = playerLocationBlips.get(player)!;
+            if (!playerBlipMap.has(location.locationId)) {
+                playerBlipMap.set(location.locationId, { blip: null, marker: null, interaction: null });
+            }
+            const locationData = playerBlipMap.get(location.locationId)!;
+            locationData.storePoints = storeBlips;
+        } else {
+            // Regular location logic
+            const locationBlip = Rebar.controllers.useBlipLocal(player, {
                 pos: location.pos,
                 color: location.color || blipSettings.color,
                 sprite: location.sprite || blipSettings.sprite,
                 shortRange: true,
                 text: `${location.locationName}`,
             });
-        } catch (error) {
-            console.error(`Failed to create blip for ${location.locationName}:`, error);
-        }
 
-        // Create marker with error handling
-        let locationMarker;
-        try {
-            locationMarker = Rebar.controllers.useMarkerLocal(player, {
+            const locationMarker = Rebar.controllers.useMarkerLocal(player, {
                 pos: new alt.Vector3(location.pos.x, location.pos.y, location.pos.z + 1),
                 color: blipSettings.markerColor || new alt.RGBA(0, 50, 200, 255),
                 scale: new alt.Vector3(1, 1, 1),
                 type: blipSettings.markerType || MarkerType.CHEVRON_UP_SINGLE,
             });
-        } catch (error) {
-            console.error(`Failed to create marker for ${location.locationName}:`, error);
-        }
 
-        // Create interaction with error handling
-        let interaction;
-        try {
-            interaction = Rebar.controllers.useInteractionLocal(player, location.locationName, 'Cylinder', [
-                location.pos.x,
-                location.pos.y,
-                location.pos.z - 1,
-                3,
-                3,
-            ]);
+            const locationInteraction = Rebar.controllers.useInteractionLocal(
+                player,
+                location.locationName,
+                'Cylinder',
+                [location.pos.x, location.pos.y, location.pos.z - 1, 3, 3],
+            );
 
-            interaction.on(async (player: alt.Player) => {
-                await handleLocationInteraction(player, locationType);
+            locationInteraction.on(async (player: alt.Player) => {
+                await handleLocationInteraction(player, factionId, locationType, location.locationId);
             });
-            interaction.onEnter((player: alt.Player) => {
+
+            locationInteraction.onEnter((player: alt.Player) => {
                 NotificationAPI.textLabel.create(player, {
                     keyToPress: 'E',
                     label: `${blipSettings.interactionPrefix || ''} ${location.locationName}`,
                 });
             });
 
-            interaction.onLeave((player: alt.Player) => {
+            locationInteraction.onLeave((player: alt.Player) => {
                 NotificationAPI.textLabel.remove(player);
             });
-        } catch (error) {
-            console.error(`Failed to create interaction for ${location.locationName}:`, error);
-        }
 
-        // Store all elements for this location
-        playerBlipMap.set(location.locationId, {
-            blip: locationBlip,
-            marker: locationMarker,
-            interaction: interaction,
-        });
+            playerBlipMap.set(location.locationId, {
+                blip: locationBlip,
+                marker: locationMarker,
+                interaction: locationInteraction,
+            });
+        }
     } catch (error) {
         console.error(`Failed to add location blips:`, error);
     }
@@ -322,8 +355,14 @@ export async function updateLocationBlipsForPlayer(
                 // Other locations only visible when on duty
                 addLocationBlips(player, factionId, character?.get().id, location, locationType);
             } else {
-                // Clean up duty locations when off duty
                 removeLocationBlips(player, location.locationId);
+            }
+
+            if (isOnDuty && location.parkingSpots && Array.isArray(location.parkingSpots)) {
+                const storePoints = location?.storeSpots;
+                for (const storeLocation of storePoints) {
+                    addLocationBlips(player, factionId, character?.get().id, location, locationType, true);
+                }
             }
         }
     }
@@ -392,3 +431,5 @@ onRankChange(async (characterId, factionId, oldRank, newRank) => {
         await updateLocationBlipsForPlayer(player, factionId, isOnDuty || false, true);
     }
 });
+
+await initializeAllGlobalJobBlips();

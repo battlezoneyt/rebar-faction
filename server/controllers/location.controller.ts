@@ -2,6 +2,7 @@ import * as alt from 'alt-server';
 import { useRebar } from '@Server/index.js';
 import { JobLocal, Locations } from '../../shared/interface.js';
 import { findFactionById, update } from './faction.controller.js';
+import { VEHICLE_TYPES } from '@Plugins/rebar-vehicle/shared/interface.js';
 
 const Rebar = useRebar();
 
@@ -29,6 +30,7 @@ export async function addLocations(
     gradeId: string,
     sprite?: number,
     color?: number,
+    vehicleType?: keyof VEHICLE_TYPES,
     parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>,
 ): Promise<boolean> {
     const factionData = findFactionById(factionId);
@@ -129,6 +131,15 @@ export async function removeLocations(
 export async function getLocationsByType(factionId: string, locationType: keyof Locations): Promise<JobLocal[]> {
     const faction = findFactionById(factionId);
     return faction.locations[locationType];
+}
+
+export async function getLocationsById(
+    factionId: string,
+    locationType: keyof Locations,
+    locationId: string,
+): Promise<JobLocal> {
+    const faction = findFactionById(factionId);
+    return faction.locations[locationType].find((location) => location.locationId === locationId);
 }
 
 export async function getFactionLocations(factionId: string): Promise<Locations> {

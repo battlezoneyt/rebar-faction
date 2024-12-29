@@ -205,3 +205,5 @@ export async function subBank(factionId: string, amount: number): Promise<boolea
 
     return didUpdate.status;
 }
+
+await init();

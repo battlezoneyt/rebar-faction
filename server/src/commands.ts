@@ -1,6 +1,6 @@
 import { useRebar } from '@Server/index.js';
 import alt from 'alt-server';
-import { Locations } from '@Plugins/rebar-faction/shared/interface.js';
+import { Locations } from '../../shared/interface.js';
 import { create, getAllFactions, remove } from '../controllers/faction.controller.js';
 import { addMember, getFactionOwner, kickMember, changeOwner } from '../controllers/member.controller.js';
 import {
@@ -13,6 +13,7 @@ import {
 } from '../controllers/grade.controller.js';
 import { addLocations, getLocationsByType, removeLocations } from '../controllers/location.controller.js';
 import { getDuty, setDuty } from '../controllers/duty.controller.js';
+import { VEHICLE_TYPES } from '@Plugins/rebar-vehicle/shared/interface.js';
 
 const rebar = useRebar();
 const messenger = rebar.messenger.useMessenger();
@@ -230,6 +231,7 @@ messenger.commands.register({
         gradeId: string,
         sprite?: string,
         color?: string,
+        vehicleType?: string,
     ) => {
         const pos = new alt.Vector3(parseFloat(x), parseFloat(y), parseFloat(z) - 1);
         const result = await addLocations(
@@ -241,6 +243,7 @@ messenger.commands.register({
             gradeId,
             parseInt(sprite),
             parseInt(color),
+            vehicleType as keyof VEHICLE_TYPES,
         );
         console.log(result);
     },

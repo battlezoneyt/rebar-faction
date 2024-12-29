@@ -1,3 +1,4 @@
+import { VEHICLE_TYPES } from '@Plugins/rebar-vehicle/shared/interface.js';
 import * as alt from 'alt-shared';
 
 declare module '@Shared/types/character.js' {
@@ -55,6 +56,8 @@ export interface Locations {
     bossMenuLoc?: Array<JobLocal>;
     factionShopLoc?: Array<JobLocal>;
     clothingLoc?: Array<JobLocal>;
+    garageLoc?: Array<JobLocal>;
+    impoundLoc?: Array<JobLocal>;
 }
 
 export interface JobLocal {
@@ -64,5 +67,7 @@ export interface JobLocal {
     gradeId: string;
     sprite?: number;
     color?: number;
+    vehicleType?: keyof VEHICLE_TYPES;
     parkingSpots?: Array<{ pos: alt.Vector3; rot: alt.Vector3 }>;
+    storeSpots?: Array<alt.Vector3>;
 }

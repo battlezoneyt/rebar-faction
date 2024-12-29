@@ -7,11 +7,4 @@ import './controllers/location.controller.js';
 import './controllers/duty.controller.js';
 import './src/commands.js';
 import './controllers/blip.manager.js';
-import { init } from './controllers/faction.controller.js';
-import { initializeAllGlobalJobBlips } from './controllers/blip.manager.js';
 import './controllers/locationManager.js';
-
-await init();
-await initializeAllGlobalJobBlips();
-
-alt.log('Rebar Faction Plugin Loaded');

@@ -58,7 +58,7 @@ export function useBlipGlobal(blipData: Blip) {
      *
      */
     function create() {
-        blip = new alt.PointBlip(blipData.pos.x, blipData.pos.y, blipData.pos.z, false);
+        blip = new alt.PointBlip(blipData.pos.x, blipData.pos.y, blipData.pos.z, true);
 
         if (typeof blipData.scale !== 'undefined') {
             blip.scale = blipData.scale;
@@ -72,7 +72,7 @@ export function useBlipGlobal(blipData: Blip) {
         blip.color = blipData.color as number;
         blip.shortRange = blipData.shortRange;
         blip.name = blipData.text;
-        blip.dimension = blipData.dimension ?? 0;
+        blip.showCone = true;
     }
 
     /**

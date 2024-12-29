@@ -114,7 +114,8 @@ export async function addPlayerToFactionBlips(player: alt.Player, characterId: n
     // Create a new unique blip for this player
     const selfBlip = useBlipGlobal({
         pos: player.pos,
-        color: BlipColor.BLUE,
+        color: BlipColor.GREEN,
+        scale: 1,
         sprite: 1,
         shortRange: false,
         text: `${player.name} (On Duty)`,
@@ -224,7 +225,7 @@ alt.on('rebar:playerCharacterBound', async (player: alt.Player, document: Charac
     }
 });
 
-registerFactionLocationCallback('dutyLocations', async (player: alt.Player) => {
+registerFactionLocationCallback('dutyLocations', async (player: alt.Player, factionId: string, locactionId: string) => {
     if (!player?.valid) return;
     const character = Rebar.document.character.useCharacter(player);
     if (!character?.get()?.faction) return;

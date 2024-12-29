@@ -27,6 +27,7 @@ import {
 import {
     addLocations,
     getFactionLocations,
+    getLocationsById,
     getLocationsByType,
     removeLocations,
 } from './controllers/location.controller.js';
@@ -72,6 +73,7 @@ function useFactionAPI() {
         addLocations: addLocations,
         removeLocations: removeLocations,
         getLocationsByType: getLocationsByType,
+        getLocationsById: getLocationsById,
         getAllLocations: getFactionLocations,
     };
 
